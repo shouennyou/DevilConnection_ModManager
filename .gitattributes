@@ -1,0 +1,38 @@
+# ========================================
+# 全局默认: 所有文件自动检测文本, 并统一在仓库中存为 LF
+# ========================================
+* text=auto eol=lf
+
+# ========================================
+# 必须使用 CRLF 的 Windows 脚本
+# ========================================
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+
+# ========================================
+# 明确声明的二进制文件(防止大文件, 压缩包, 图片及游戏资产损坏)
+# ========================================
+# 图片与文档
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pdf    binary
+
+# 压缩包与可执行文件/库
+*.zip    binary
+*.tar    binary
+*.gz     binary
+*.exe    binary
+*.dll    binary
+
+# 字体文件
+*.ttf    binary
+*.woff   binary
+*.woff2  binary
+
+# 游戏 Mod / 资源资产格式
+*.pak    binary
+*.cpk    binary
+*.psd    binary

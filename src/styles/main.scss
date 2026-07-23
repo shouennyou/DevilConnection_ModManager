@@ -1,0 +1,29 @@
+/* Vuetify 组件和普通 HTML 共用 Roboto Mono. */
+:root {
+  --v-font-family: 'Roboto Mono';
+}
+
+html,
+body,
+.v-application {
+  font-family: var(--v-font-family);
+}
+
+* {
+  user-select: none;
+  -webkit-user-select: none;
+  scrollbar-width: none; /* Firefox 浏览器. */
+}
+
+/* 全局隐藏滚动条, 仍保留滚动能力. */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* 用于说明、描述和提示文本, 保留换行并避免长单词挤压布局. */
+.multiline-text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
