@@ -307,7 +307,9 @@
         return false
       }
       const localVersion = mod.version || '0.0.0'
-      if (semver.valid(remote.version) && semver.valid(localVersion) && semver.gt(remote.version, localVersion)) {
+      const remoteComparableVersion = ModUpdateSource.toComparableVersion(remote.version)
+      const localComparableVersion = ModUpdateSource.toComparableVersion(localVersion)
+      if (remoteComparableVersion && localComparableVersion && semver.gt(remoteComparableVersion, localComparableVersion)) {
         mod.hasUpdate = true
         mod.updateInfo = {
           version: remote.version,
@@ -523,7 +525,7 @@
       return
     }
 
-    const result = await updateMod({ fileName: mod.file, displayName, asarUrl })
+    const result = await updateMod({ modId: mod.id || mod.file, fileName: mod.file, displayName, asarUrl })
     if (result.success) {
       await loadMods()
       setTimeout(() => progress.remove(mod.file), 3000)

@@ -6,7 +6,7 @@ type UpdateFetcher = Pick<ModManagerAPI, 'fetchText'>
 
 /** 模组工坊注册表中的单条记录. */
 export interface ModRegistryEntry {
-  id: string
+  ids: string[]
   repo: string
 }
 
@@ -56,6 +56,24 @@ export class ModUpdateSource {
     return this.fetchByUrl(api, url, text => this.parseManifest(text, targetId))
   }
 
+  /** 获取同一更新源中多个指定模组的完整元数据, 仅请求一次 update.json. */
+  static async fetchManifests (
+    api: UpdateFetcher,
+    update: ModUpdateConfig,
+    targetIds: string[],
+  ): Promise<ModUpdateManifest[]> {
+    const url = this.resolveUrl(update)
+    if (!url) {
+      return []
+    }
+
+    const manifests = await this.fetchByUrl(api, url, text => targetIds
+      .map(id => this.parseManifest(text, id))
+      .filter((manifest): manifest is ModUpdateManifest => manifest !== null),
+    )
+    return manifests ?? []
+  }
+
   static resolveUrl (update: ModUpdateConfig): string | null {
     if (update.source === 'github') {
       return this.githubLatestDownloadUrl(update.repo)
@@ -74,6 +92,22 @@ export class ModUpdateSource {
     return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/releases/latest/download/update.json`
   }
 
+  /** 将标准 SemVer 或 YYYY.MM.DD 日期版本转换为可比较的 SemVer. */
+  static toComparableVersion (value?: string): string | null {
+    const version = value?.trim() ?? ''
+    const validVersion = semver.valid(version)
+    if (validVersion) {
+      return validVersion
+    }
+
+    const dateVersion = /^(\d+)\.(\d{1,2})\.(\d{1,2})$/.exec(version)
+    if (!dateVersion) {
+      return null
+    }
+
+    return semver.valid(`${Number(dateVersion[1])}.${Number(dateVersion[2])}.${Number(dateVersion[3])}`)
+  }
+
   /** 解析单对象旧格式或按 ID 查找数组新格式的更新信息. */
   static parse (text: string, targetId?: string): ModUpdateInfo | null {
     const payload = this.parseJson(text)
@@ -81,18 +115,25 @@ export class ModUpdateSource {
     return entry ? this.parseUpdateInfo(entry) : null
   }
 
-  /** 解析包含 id, name, author 列表和 description 的工坊 update.json. */
-  static parseManifest (text: string, targetId?: string): ModUpdateManifest | null {
+  /**
+   * 解析工坊 update.json.
+   * 单对象和数组中的每个模组都必须声明 id, 并按目标 ID 精确匹配.
+   */
+  static parseManifest (
+    text: string,
+    targetId?: string,
+  ): ModUpdateManifest | null {
     const payload = this.parseJson(text)
     const entry = this.selectEntry(payload, targetId)
     const update = entry ? this.parseUpdateInfo(entry) : null
-    if (!entry || !update || typeof entry.id !== 'string' || !entry.id.trim()) {
+    const entryId = typeof entry?.id === 'string' ? entry.id.trim() : ''
+    if (!entry || !update || !entryId) {
       return null
     }
 
     return {
       ...update,
-      id: entry.id.trim(),
+      id: entryId,
       name: typeof entry.name === 'string' ? entry.name.trim() : '',
       author: Array.isArray(entry.author)
         ? entry.author.filter((author): author is string => typeof author === 'string').map(author => author.trim()).filter(Boolean)
@@ -101,7 +142,7 @@ export class ModUpdateSource {
     }
   }
 
-  /** 解析 registry.json, 跳过无效或重复 ID 的记录. */
+  /** 解析新版 registry.json, 每个仓库使用 id 数组声明所包含的模组. */
   static parseRegistry (text: string): ModRegistryEntry[] | null {
     let payload: unknown
     try {
@@ -117,16 +158,28 @@ export class ModUpdateSource {
     const ids = new Set<string>()
     const entries: ModRegistryEntry[] = []
     for (const item of payload) {
-      if (!isRecord(item) || typeof item.id !== 'string' || typeof item.repo !== 'string') {
+      if (!isRecord(item) || !Array.isArray(item.id) || typeof item.repo !== 'string') {
         continue
       }
-      const id = item.id.trim()
       const repo = item.repo.trim()
-      if (!id || ids.has(id) || !this.githubLatestDownloadUrl(repo)) {
+      const entryIds: string[] = []
+      for (const value of item.id) {
+        if (typeof value !== 'string') {
+          continue
+        }
+        const id = value.trim()
+        if (!id || ids.has(id) || entryIds.includes(id)) {
+          continue
+        }
+        entryIds.push(id)
+      }
+      if (entryIds.length === 0 || !this.githubLatestDownloadUrl(repo)) {
         continue
       }
-      ids.add(id)
-      entries.push({ id, repo })
+      for (const id of entryIds) {
+        ids.add(id)
+      }
+      entries.push({ ids: entryIds, repo })
     }
     return entries
   }
@@ -181,7 +234,7 @@ export class ModUpdateSource {
 
   private static parseUpdateInfo (payload: Record<string, unknown>): ModUpdateInfo | null {
     const version = typeof payload.version === 'string' ? payload.version.trim() : ''
-    if (!version || !semver.valid(version)) {
+    if (!version || !this.toComparableVersion(version)) {
       return null
     }
     return {

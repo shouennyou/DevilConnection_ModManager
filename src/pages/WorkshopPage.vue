@@ -112,9 +112,11 @@
         throw new Error('工坊注册表格式无效')
       }
 
-      const results = await Promise.all(registry.map(entry => fetchCatalogItem(api, entry)))
-      const items = results.filter((item): item is WorkshopCatalogItem => item !== null)
-      const catalog = { items, unavailableCount: registry.length - items.length }
+      const results = await Promise.all(registry.map(entry => fetchCatalogItems(api, entry)))
+      const catalog = {
+        items: results.flat(),
+        unavailableCount: registry.reduce((count, entry) => count + entry.ids.length, 0) - results.flat().length,
+      }
       sessionCatalog = catalog
       return catalog
     })()
@@ -126,12 +128,9 @@
     }
   }
 
-  async function fetchCatalogItem (api: ModManagerAPI, entry: ModRegistryEntry): Promise<WorkshopCatalogItem | null> {
-    const manifest = await ModUpdateSource.fetchManifest(api, { source: 'github', repo: entry.repo }, entry.id)
-    if (!manifest || manifest.id !== entry.id) {
-      return null
-    }
-    return { repo: entry.repo, manifest }
+  async function fetchCatalogItems (api: ModManagerAPI, entry: ModRegistryEntry): Promise<WorkshopCatalogItem[]> {
+    const manifests = await ModUpdateSource.fetchManifests(api, { source: 'github', repo: entry.repo }, entry.ids)
+    return manifests.map(manifest => ({ repo: entry.repo, manifest }))
   }
 
   const dialogs = useDialogs()
@@ -151,7 +150,9 @@
       if (!mod.id) continue
       const current = installed.get(mod.id)
       const modVersion = mod.version ?? '0.0.0'
-      if (!current || (semver.valid(modVersion) && semver.valid(current.version) && semver.gt(modVersion, current.version))) {
+      const modComparableVersion = ModUpdateSource.toComparableVersion(modVersion)
+      const currentComparableVersion = ModUpdateSource.toComparableVersion(current?.version)
+      if (!current || (modComparableVersion && currentComparableVersion && semver.gt(modComparableVersion, currentComparableVersion))) {
         installed.set(mod.id, {
           file: mod.file,
           version: modVersion,
@@ -207,10 +208,12 @@
       mods.value = catalog.items
         .map(({ repo, manifest }) => {
           const local = installed.get(manifest.id) ?? null
+          const remoteComparableVersion = ModUpdateSource.toComparableVersion(manifest.version)
+          const localComparableVersion = ModUpdateSource.toComparableVersion(local?.version)
           const hasUpdate = local !== null
-            && semver.valid(manifest.version) !== null
-            && semver.valid(local.version) !== null
-            && semver.gt(manifest.version, local.version)
+            && remoteComparableVersion !== null
+            && localComparableVersion !== null
+            && semver.gt(remoteComparableVersion, localComparableVersion)
           return {
             ...manifest,
             repo,
@@ -222,7 +225,7 @@
         .toSorted((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
 
       if (catalog.unavailableCount > 0) {
-        loadNotice.value = `${catalog.unavailableCount} 个注册模组的 update.json 无法读取或与注册表 id 不一致。`
+        loadNotice.value = `${catalog.unavailableCount} 个注册模组的 update.json 无法读取或与注册表 id 不一致.`
       }
     } catch (error) {
       console.error('[模组工坊] 加载工坊失败:', error)
@@ -301,8 +304,8 @@
     downloadingId.value = mod.id
     try {
       const result = isUpdate
-        ? await updateMod({ fileName, displayName: mod.name || mod.id, asarUrl: mod.asarUrl })
-        : await downloadModAsar({ fileName, displayName: mod.name || mod.id, asarUrl: mod.asarUrl, title: '下载模组' })
+        ? await updateMod({ modId: mod.id, fileName, displayName: mod.name || mod.id, asarUrl: mod.asarUrl })
+        : await downloadModAsar({ modId: mod.id, fileName, displayName: mod.name || mod.id, asarUrl: mod.asarUrl, title: '下载模组' })
       if (!result.success) return
 
       if (!isUpdate) {

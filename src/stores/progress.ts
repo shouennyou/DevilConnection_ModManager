@@ -53,9 +53,16 @@ export const useProgressStore = defineStore('progress', () => {
   /** 更新进行中任务的进度百分比. */
   function update (id: string, percent: number) {
     const task = tasks.value.find(t => t.id === id)
-    if (task && task.status === 'running') {
-      task.percent = percent
+    if (!task || task.status !== 'running' || task.indeterminate || !Number.isFinite(percent)) {
+      return
     }
+
+    // 网络进度事件可能重复或乱序, 仅接受递增进度以避免进度条回跳抖动.
+    const nextPercent = Math.min(99, Math.max(0, Math.round(percent)))
+    if (nextPercent <= task.percent) {
+      return
+    }
+    task.percent = nextPercent
   }
 
   /** 标记任务成功或失败. */

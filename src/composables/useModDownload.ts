@@ -1,6 +1,7 @@
 import { useProgressStore } from '@/stores/progress'
 
 export interface ModDownloadRequest {
+  modId: string
   fileName: string
   displayName: string
   asarUrl: string
@@ -13,6 +14,8 @@ export interface ModDownloadResult {
 }
 
 let progressListenerBound = false
+/** 同一模组的进行中下载, 防止不同入口重复发起覆盖操作. */
+const activeDownloads = new Map<string, Promise<ModDownloadResult>>()
 
 /** 下载 asar 的公共流程, 供模组管理和模组工坊共用. */
 export function useModDownload () {
@@ -32,7 +35,7 @@ export function useModDownload () {
     progressListenerBound = true
   }
 
-  async function downloadModAsar (request: ModDownloadRequest): Promise<ModDownloadResult> {
+  async function performDownload (request: ModDownloadRequest): Promise<ModDownloadResult> {
     const api = window.api?.modmanager
     if (!api) {
       return { success: false, message: '仅在应用内可用' }
@@ -52,6 +55,28 @@ export function useModDownload () {
       const message = error instanceof Error ? error.message : '下载失败'
       progress.finish(request.fileName, 'error', message)
       return { success: false, message }
+    }
+  }
+
+  function downloadModAsar (request: ModDownloadRequest): Promise<ModDownloadResult> {
+    const modKey = request.modId.trim() || request.fileName
+    const activeDownload = activeDownloads.get(modKey)
+    if (activeDownload) {
+      return activeDownload
+    }
+
+    const download = performDownload(request)
+    activeDownloads.set(modKey, download)
+    void download.then(
+      () => releaseDownload(modKey, download),
+      () => releaseDownload(modKey, download),
+    )
+    return download
+  }
+
+  function releaseDownload (modKey: string, download: Promise<ModDownloadResult>): void {
+    if (activeDownloads.get(modKey) === download) {
+      activeDownloads.delete(modKey)
     }
   }
 

@@ -41,13 +41,10 @@
   import TheTopBar from '@/components/TheTopBar.vue'
   import { useAppTheme } from '@/composables/useAppTheme'
   import { useDialogs } from '@/composables/useDialogs'
-  import { useProgressStore } from '@/stores/progress'
 
   const { mobile } = useDisplay()
   const { initTheme } = useAppTheme()
   const { confirmRef, modIssueRef, renameRef, updateRef } = useDialogs()
-  const progress = useProgressStore()
-
   const loading = ref(true)
 
   onMounted(() => {
@@ -55,12 +52,6 @@
     setTimeout(() => {
       loading.value = false
     }, 600)
-
-    // 下载完成由发起流程处理, 此处仅同步进行中的任务进度.
-    window.api?.modmanager?.onDownloadProgress(data => {
-      if (data.result !== undefined || data.total <= 0) return
-      progress.update(data.fileName, Math.round((data.received / data.total) * 100))
-    })
   })
 </script>
 
