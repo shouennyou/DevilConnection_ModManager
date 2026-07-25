@@ -31,6 +31,8 @@ export interface ModMeta {
   author?: string[]
   update?: ModUpdateConfig | null
   description?: string
+  /** 模组图标相对路径, 例如 assets/icon.png. */
+  icon?: string
   /** 前置依赖, 如 { "id-a": ">=0.16.0", "id-b": "*" }. */
   depends?: Record<string, string>
   /** 冲突模组, 如 { "id-c": "*", "id-d": "<2.0.0" }. */

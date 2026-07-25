@@ -1,5 +1,9 @@
 <template>
-  <v-card class="mod-card">
+  <v-card
+    class="mod-card"
+    :class="{ 'mod-card--with-icon': Boolean(iconUrl) }"
+    :style="cardStyle"
+  >
     <v-card-text class="pa-4">
       <div class="mod-card__header mb-2">
         <span class="mod-card__name text-subtitle-1 font-weight-bold text-truncate">
@@ -122,7 +126,17 @@
 
 <script setup lang="ts">
   import type { ModInfo } from '@/types/mod'
-  import { computed } from 'vue'
+  import { computed, onBeforeUnmount, ref, watch } from 'vue'
+
+  const ICON_MIME_TYPES: Record<string, string> = {
+    avif: 'image/avif',
+    bmp: 'image/bmp',
+    gif: 'image/gif',
+    jpeg: 'image/jpeg',
+    jpg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+  }
 
   const props = defineProps({
     mod: {
@@ -145,6 +159,73 @@
 
   // 优先显示 modloader.mod.json 中的名称, 否则使用去除 .asar 后缀的文件名.
   const displayName = computed(() => props.mod.name || props.mod.file.replace(/\.asar$/i, ''))
+  const iconUrl = ref('')
+  const cardStyle = computed((): Record<string, string> => {
+    if (!iconUrl.value) return {}
+    return { '--mod-card-icon': `url("${iconUrl.value}")` }
+  })
+  let loadId = 0
+
+  function resolveIconPath (value: string | undefined): { path: string, mimeType: string } | null {
+    const rawPath = typeof value === 'string' ? value.trim() : ''
+    if (!rawPath || rawPath.length > 256 || rawPath.startsWith('/') || rawPath.startsWith('\\') || /^[a-z]:/i.test(rawPath)) {
+      return null
+    }
+
+    const segments = rawPath.replaceAll('\\', '/').split('/')
+    if (segments.some(segment => !segment || segment === '.' || segment === '..')) {
+      return null
+    }
+
+    const path = segments.join('/')
+    const extension = path.split('.').pop()?.toLowerCase() ?? ''
+    const mimeType = ICON_MIME_TYPES[extension]
+    return mimeType ? { path, mimeType } : null
+  }
+
+  function revokeIconUrl () {
+    if (!iconUrl.value) return
+    URL.revokeObjectURL(iconUrl.value)
+    iconUrl.value = ''
+  }
+
+  async function loadIcon () {
+    const currentLoadId = ++loadId
+    revokeIconUrl()
+
+    const icon = resolveIconPath(props.mod.icon)
+    const api = window.api?.modloader
+    if (!icon || !api || typeof URL.createObjectURL !== 'function') return
+
+    try {
+      const data = await api.readBuffer(`mods/${props.mod.file}/${icon.path}`)
+      if (!data || currentLoadId !== loadId) return
+
+      const buffer = new ArrayBuffer(data.byteLength)
+      new Uint8Array(buffer).set(data)
+      const url = URL.createObjectURL(new Blob([buffer], { type: icon.mimeType }))
+      if (currentLoadId !== loadId) {
+        URL.revokeObjectURL(url)
+        return
+      }
+      iconUrl.value = url
+    } catch (error) {
+      console.warn(`[模组管理] 读取模组图标失败, 文件: ${props.mod.file}`, error)
+    }
+  }
+
+  watch(
+    () => [props.mod.file, props.mod.icon],
+    function () {
+      void loadIcon()
+    },
+    { immediate: true },
+  )
+
+  onBeforeUnmount(function () {
+    loadId += 1
+    revokeIconUrl()
+  })
 </script>
 
 <style scoped>
@@ -154,6 +235,19 @@
 
 .mod-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.mod-card--with-icon {
+  background-color: rgb(var(--v-theme-surface));
+  background-image: linear-gradient(
+    110deg,
+    rgba(var(--v-theme-surface), 0.97) 0%,
+    rgba(var(--v-theme-surface), 0.91) 54%,
+    rgba(var(--v-theme-surface), 0.8) 100%
+  ), var(--mod-card-icon);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .mod-card__header {
@@ -180,4 +274,24 @@
   flex-wrap: wrap;
   gap: 8px 10px;
 }
+
+@media (max-width: 600px) {
+  .mod-card__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 4px;
+    column-gap: 8px;
+  }
+
+  .mod-card__priority {
+    grid-row: 2;
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .mod-card__switch {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+  }
+}
+
 </style>

@@ -256,6 +256,7 @@
         version: info?.version || '',
         author: info?.author || [],
         description: info?.description || '',
+        icon: typeof info?.icon === 'string' ? info.icon : '',
         update: info?.update || null,
         depends: info?.depends || {},
         breaks: info?.breaks || {},

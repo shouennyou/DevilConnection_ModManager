@@ -68,6 +68,8 @@ export interface ModInfo {
   version?: string
   author?: string[]
   description?: string
+  /** 模组内图标相对路径, 来自 modloader.mod.json 的 icon 字段. */
+  icon?: string
   /** 更新配置, 来自 modloader.mod.json 的 update 字段. */
   update?: ModUpdateConfig | null
   /** 前置依赖, 如 { "id-a": ">=0.16.0", "id-b": "*" }. */
