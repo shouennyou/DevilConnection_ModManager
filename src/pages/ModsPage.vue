@@ -53,8 +53,9 @@
   import { useModActions } from '@/composables/useModActions'
   import { useModDownload } from '@/composables/useModDownload'
   import { useProgressStore } from '@/stores/progress'
-  import { inspectModIssues } from '@/utils/mod-issues'
+  import { inspectModIssues, type ModIssueMod } from '@/utils/mod-issues'
   import { MOD_ORDER_PATH } from '@/utils/mod-order'
+  import { readModLoaderVersion } from '@/utils/modloader-version'
   import { ModUpdateSource } from '@/utils/ModUpdateSource'
 
   const dialogs = useDialogs()
@@ -69,6 +70,7 @@
   let sortable: Sortable | null = null
 
   const mods = ref<ModInfo[]>([])
+  let modLoader: ModIssueMod | null = null
 
   /** 游戏核心归档不作为模组展示. */
   const SYSTEM_FILES = new Set(['app.asar', 'app.bak.asar'])
@@ -204,12 +206,23 @@
     let orderList: ModOrderEntry[] = []
     let modInfos: ModMeta[] = []
     try {
-      const [content, infos] = await Promise.all([
+      const [content, infos, loaderVersion] = await Promise.all([
         api.readFile(MOD_ORDER_PATH),
         api.scanModInfos(),
+        readModLoaderVersion(fileApi),
       ])
       orderList = content ? JSON.parse(content) : []
       modInfos = infos ?? []
+      modLoader = loaderVersion
+        ? {
+          id: loaderVersion.id,
+          file: 'ModLoader',
+          name: 'ModLoader',
+          version: loaderVersion.version,
+          enabled: true,
+          system: true,
+        }
+        : null
     } catch (error) {
       console.error('[模组管理] 加载模组列表失败:', error)
       return
@@ -263,7 +276,9 @@
 
   /** 检测模组问题, 并在问题集合变化时提示一次. */
   function checkModIssues (list: ModInfo[]) {
-    const result = inspectModIssues(list)
+    const result = inspectModIssues(list, {
+      systemMods: modLoader ? [modLoader] : [],
+    })
     for (const m of list) {
       m.duplicate = Boolean(m.id) && result.duplicateIds.has(m.id as string)
       m.dependencyIssue = result.dependencyFiles.has(m.file)

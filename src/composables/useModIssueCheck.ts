@@ -1,7 +1,8 @@
 import type { ModMeta, ModOrderEntry } from '@/types/window-api'
 import { useDialogs } from '@/composables/useDialogs'
-import { inspectModIssues } from '@/utils/mod-issues'
+import { inspectModIssues, type ModIssueMod } from '@/utils/mod-issues'
 import { MOD_ORDER_PATH } from '@/utils/mod-order'
+import { readModLoaderVersion } from '@/utils/modloader-version'
 
 const SYSTEM_FILES = new Set(['app.asar', 'app.bak.asar'])
 
@@ -12,9 +13,11 @@ async function loadModIssues () {
     throw new TypeError('模组管理服务不可用')
   }
 
-  const [content, modInfos] = await Promise.all([
+  const loaderApi = window.api?.modloader
+  const [content, modInfos, loaderVersion] = await Promise.all([
     api.readFile(MOD_ORDER_PATH),
     api.scanModInfos(),
+    loaderApi ? readModLoaderVersion(loaderApi) : Promise.resolve(null),
   ])
   const orderList: unknown = content ? JSON.parse(content) : []
   if (!Array.isArray(orderList)) {
@@ -42,7 +45,18 @@ async function loadModIssues () {
       }
     })
 
-  return inspectModIssues(mods)
+  const systemMods: ModIssueMod[] = loaderVersion
+    ? [{
+        id: loaderVersion.id,
+        file: 'ModLoader',
+        name: 'ModLoader',
+        version: loaderVersion.version,
+        enabled: true,
+        system: true,
+      }]
+    : []
+
+  return inspectModIssues(mods, { systemMods })
 }
 
 /** 统一展示模组问题, 并支持启动前或手动校验当前模组组合. */

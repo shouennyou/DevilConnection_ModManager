@@ -24,6 +24,7 @@
       <div class="text-caption text-medium-emphasis mb-2">
         <span v-if="mod.version">{{ mod.version }}</span>
         <span v-if="mod.author?.length"> · {{ mod.author.join(', ') }}</span>
+        <span v-if="mod.id"> · {{ mod.id }}</span>
         <span v-if="mod.sizeText"> · {{ mod.sizeText }}</span>
       </div>
 

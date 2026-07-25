@@ -8,8 +8,15 @@ export interface ModIssueMod {
   name?: string
   version?: string
   enabled: boolean
+  /** 系统项仅参与依赖和冲突判断, 不会作为可管理模组显示. */
+  system?: boolean
   depends?: Record<string, string>
   breaks?: Record<string, string>
+}
+
+export interface ModIssueOptions {
+  /** 始终启用的系统组件, 例如 ModLoader 本身. */
+  systemMods?: ModIssueMod[]
 }
 
 /** 模组问题检测结果, 包含重复 ID 和可直接展示的弹窗选项. */
@@ -58,10 +65,12 @@ function dependencyItem (id: string, range: string, target: ModIssueMod | undefi
 }
 
 /** 检测已启用模组的重复 ID, 依赖和冲突问题. */
-export function inspectModIssues (mods: ModIssueMod[]): ModIssueCheckResult {
+export function inspectModIssues (mods: ModIssueMod[], options: ModIssueOptions = {}): ModIssueCheckResult {
   const enabledMods = mods.filter(mod => mod.enabled && Boolean(mod.id))
+  const enabledSystemMods = (options.systemMods ?? []).filter(mod => mod.enabled && Boolean(mod.id))
+  const enabledTargets = [...enabledMods, ...enabledSystemMods]
   const modsById = new Map<string, ModIssueMod[]>()
-  for (const mod of enabledMods) {
+  for (const mod of enabledTargets) {
     const id = mod.id as string
     const group = modsById.get(id) ?? []
     group.push(mod)
@@ -130,7 +139,9 @@ export function inspectModIssues (mods: ModIssueMod[]): ModIssueCheckResult {
         }
         processedConflictPairs.add(pairKey)
         conflictFiles.add(mod.file)
-        conflictFiles.add(target.file)
+        if (!target.system) {
+          conflictFiles.add(target.file)
+        }
 
         const expectedRange = range.trim()
         const versionText = expectedRange && expectedRange !== '*'

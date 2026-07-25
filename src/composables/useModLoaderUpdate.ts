@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import { useDialogs } from '@/composables/useDialogs'
 import { MODLOADER_REPO } from '@/config/repos'
 import { useAppStore } from '@/stores/app'
+import { readModLoaderVersion } from '@/utils/modloader-version'
 import { updater } from '@/utils/Updater'
 
 interface ReleaseSummary {
@@ -13,22 +14,9 @@ interface ReleaseSummary {
   prerelease: boolean
 }
 
-/** ModLoader 版本文件相对 resourcesPath 的路径. */
-const MODLOADER_VERSION_PATH = 'app.asar/node_modules/dc-modloader/version.json'
-
 /** 异步读取并解析本地 ModLoader 版本号, 失败时返回 null. */
 async function readLocalModLoaderVersion (ml: ModLoaderAPI): Promise<string | null> {
-  try {
-    const text = await ml.readFile(MODLOADER_VERSION_PATH)
-    if (!text) {
-      return null
-    }
-    const json = JSON.parse(text) as { version?: string }
-    return json.version || null
-  } catch (error) {
-    console.error('[ModLoader 更新] 读取本地版本失败:', error)
-    return null
-  }
+  return (await readModLoaderVersion(ml))?.version ?? null
 }
 
 /** 模块级更新状态, 在组件和页面之间共享. */
