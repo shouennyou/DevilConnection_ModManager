@@ -1,7 +1,44 @@
 <template>
   <div class="mods-page">
     <v-container class="pa-4" fluid>
-      <div ref="listEl" class="mod-list">
+      <div
+        v-if="isLoading && mods.length === 0"
+        class="mods-state"
+      >
+        <v-progress-circular color="primary" indeterminate size="32" width="3" />
+      </div>
+
+      <section
+        v-else-if="mods.length === 0"
+        aria-live="polite"
+        class="mods-state"
+      >
+        <v-icon color="primary" icon="mdi-puzzle-outline" size="56" />
+
+        <div class="text-subtitle-1 font-weight-bold mt-4">暂无已安装模组</div>
+        <div class="text-body-2 text-medium-emphasis mt-1">从本地安装 .asar 模组，或前往工坊浏览。</div>
+
+        <div class="mods-state__actions mt-5">
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-plus"
+            variant="flat"
+            @click="handleInstall"
+          >
+            安装模组
+          </v-btn>
+
+          <v-btn
+            prepend-icon="mdi-storefront-outline"
+            variant="tonal"
+            @click="openWorkshop"
+          >
+            浏览工坊
+          </v-btn>
+        </div>
+      </section>
+
+      <div v-show="mods.length > 0" ref="listEl" class="mod-list">
         <!-- 使用位置索引作为 key, 使 SortableJS 与 Vue 按同一位置顺序更新. -->
         <div
           v-for="(mod, index) in mods"
@@ -47,6 +84,7 @@
   import semver from 'semver'
   import Sortable from 'sortablejs'
   import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+  import { useRouter } from 'vue-router'
   import ModConfigDialog from '@/components/dialogs/ModConfigDialog.vue'
   import ModCard from '@/components/ModCard.vue'
   import { useDialogs } from '@/composables/useDialogs'
@@ -59,6 +97,7 @@
   import { ModUpdateSource } from '@/utils/ModUpdateSource'
 
   const dialogs = useDialogs()
+  const router = useRouter()
   const progress = useProgressStore()
   const { installSignal } = useModActions()
   const { updateMod } = useModDownload()
@@ -70,6 +109,7 @@
   let sortable: Sortable | null = null
 
   const mods = ref<ModInfo[]>([])
+  const isLoading = ref(true)
   let modLoader: ModIssueMod | null = null
 
   /** 游戏核心归档不作为模组展示. */
@@ -200,6 +240,7 @@
     const fileApi = window.api?.modloader
     if (!api || !fileApi) {
       console.warn('[模组管理] 文件接口不可用, 可能不在 Electron 环境中')
+      isLoading.value = false
       return
     }
 
@@ -225,6 +266,7 @@
         : null
     } catch (error) {
       console.error('[模组管理] 加载模组列表失败:', error)
+      isLoading.value = false
       return
     }
 
@@ -266,6 +308,7 @@
     }
 
     mods.value = list
+    isLoading.value = false
     // 标记并提示重复, 依赖和冲突问题.
     checkModIssues(list)
     // 列表优先渲染, 更新检查在后台进行.
@@ -619,6 +662,10 @@
     fileInputEl.value?.click()
   }
 
+  function openWorkshop () {
+    void router.push('/workshop')
+  }
+
   /** 以流式临时文件写入选中的 asar, 重名时先确认覆盖. */
   async function onFileSelected (event: Event) {
     const input = event.target as HTMLInputElement
@@ -735,6 +782,23 @@
 .mod-list {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.mods-state {
+  min-height: min(52vh, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.mods-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 12px;
 }
 
