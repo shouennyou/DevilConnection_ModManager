@@ -45,6 +45,53 @@
     <v-card class="mt-4" rounded="lg">
       <v-list lines="two">
         <v-list-subheader class="text-uppercase font-weight-bold">
+          游戏核心
+        </v-list-subheader>
+
+        <v-list-item>
+          <template #prepend>
+            <v-icon :color="gameCoreStatus.exists ? 'success' : undefined">mdi-package-variant-closed</v-icon>
+          </template>
+
+          <v-list-item-title>游戏核心文件</v-list-item-title>
+
+          <v-list-item-subtitle class="text-truncate">
+            {{ gameCoreStatusText }}
+          </v-list-item-subtitle>
+
+          <template #append>
+            <v-progress-circular
+              v-if="gameCoreLoading"
+              color="primary"
+              indeterminate
+              size="22"
+              width="2"
+            />
+
+            <template v-else>
+              <v-btn
+                icon="mdi-folder-open-outline"
+                title="选择游戏核心文件"
+                variant="text"
+                @click="selectGameCore"
+              />
+
+              <v-btn
+                v-if="gameCoreStatus.configured"
+                icon="mdi-close"
+                title="清除游戏核心文件"
+                variant="text"
+                @click="clearGameCore"
+              />
+            </template>
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-card>
+
+    <v-card class="mt-4" rounded="lg">
+      <v-list lines="two">
+        <v-list-subheader class="text-uppercase font-weight-bold">
           存档备份
         </v-list-subheader>
 
@@ -209,7 +256,7 @@
 
   const store = useAppStore()
   const { setThemeMode } = useAppTheme()
-  const { confirm } = useDialogs()
+  const { alert, confirm } = useDialogs()
 
   const selectedMode = ref(store.themeMode)
   watch(selectedMode, val => {
@@ -247,8 +294,72 @@
 
   const steamEnabled = ref(false)
   const steamLoading = ref(true)
+  const gameCoreLoading = ref(false)
+  const gameCoreStatus = ref({ path: null as string | null, configured: false, exists: false })
+
+  const gameCoreStatusText = computed(() => {
+    if (gameCoreStatus.value.exists) return gameCoreStatus.value.path || '已选择游戏核心文件'
+    if (gameCoreStatus.value.configured) return '所选文件无法访问，请重新选择'
+    return '请选择游戏安装目录中的核心 .asar 文件'
+  })
+
+  async function loadGameCoreStatus (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api) return
+    try {
+      gameCoreStatus.value = await api.getGameCoreStatus()
+    } catch (error) {
+      console.error('[设置页面] 读取游戏核心状态失败:', error)
+    }
+  }
+
+  async function selectGameCore (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api || gameCoreLoading.value) return
+    gameCoreLoading.value = true
+    try {
+      const result = await api.selectGameCoreFile()
+      if (!result.success && !result.canceled) {
+        await alert({ title: '选择失败', message: result.message || '无法保存游戏核心文件路径' })
+      }
+      await loadGameCoreStatus()
+    } catch (error) {
+      console.error('[设置页面] 选择游戏核心失败:', error)
+      await alert({ title: '选择失败', message: '无法选择游戏核心文件' })
+    } finally {
+      gameCoreLoading.value = false
+    }
+  }
+
+  async function clearGameCore (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api || gameCoreLoading.value) return
+    const ok = await confirm({
+      title: '清除游戏核心',
+      message: '清除后将无法启动游戏，直到重新选择核心文件。源文件不会被删除。',
+      confirmText: '清除',
+      cancelText: '取消',
+      confirmColor: 'error',
+    })
+    if (!ok) return
+
+    gameCoreLoading.value = true
+    try {
+      const result = await api.clearGameCoreFile()
+      if (!result.success) {
+        await alert({ title: '清除失败', message: result.message || '无法清除游戏核心文件路径' })
+      }
+      await loadGameCoreStatus()
+    } catch (error) {
+      console.error('[设置页面] 清除游戏核心失败:', error)
+      await alert({ title: '清除失败', message: '无法清除游戏核心文件路径' })
+    } finally {
+      gameCoreLoading.value = false
+    }
+  }
 
   onMounted(async () => {
+    await loadGameCoreStatus()
     try {
       steamEnabled.value = await window.api?.getSteamEnabled?.() === true
     } catch (error) {

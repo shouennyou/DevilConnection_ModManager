@@ -133,9 +133,6 @@
   import { useBackupStatusStore } from '@/stores/backupStatus'
   import { MOD_ORDER_PATH } from '@/utils/mod-order'
 
-  /** 游戏核心归档不计入模组统计. */
-  const SYSTEM_FILES = new Set(['app.asar', 'app.bak.asar'])
-
   const appStore = useAppStore()
   const backupStatus = useBackupStatusStore()
   const { runAutoBackup } = useBackupRunner()
@@ -150,6 +147,8 @@
   const total = ref(0)
   const enabledCount = ref(0)
   const gameResourceOk = ref(false)
+  const gameCoreConfigured = ref(false)
+  const gameCorePath = ref<string | null>(null)
   const isLaunching = ref(false)
 
   /** Steam 状态, 分别记录模式开关, 连接状态和首次读取状态. */
@@ -157,11 +156,15 @@
   const steamActive = ref(false)
   const steamReady = ref(false)
 
-  const resourceText = computed(() =>
-    gameResourceOk.value
-      ? '已检测到游戏资源'
-      : '未检测到游戏核心资源(app.asar / app.bak.asar)',
-  )
+  const resourceText = computed(() => {
+    if (gameResourceOk.value) {
+      const name = gameCorePath.value?.split(/[\\/]/).pop()
+      return name ? `已选择游戏核心: ${name}` : '已选择游戏核心文件'
+    }
+    return gameCoreConfigured.value
+      ? '所选游戏核心文件无法访问，请在设置中重新选择'
+      : '请先在设置中选择游戏核心文件'
+  })
 
   /** Steam 模式关闭时直接通过, 开启后必须已连接. */
   const steamOk = computed(() => !steamConfigured.value || steamActive.value)
@@ -217,21 +220,23 @@
     const api = window.api?.modmanager
     if (!api) return
 
-    // 读取模组顺序并排除游戏核心归档.
+    // 读取模组顺序.
     try {
       const content = await api.readFile(MOD_ORDER_PATH)
       const list = (content ? JSON.parse(content) : []) as ModOrderEntry[]
-      const mods = list.filter(e => e && e.file && !SYSTEM_FILES.has(e.file))
+      const mods = list.filter(e => e && e.file)
       total.value = mods.length
       enabledCount.value = mods.filter(m => m.enabled !== false).length
     } catch (error) {
       console.error('[主页] 读取模组统计失败:', error)
     }
 
-    // app.asar 或 app.bak.asar 存在时即可启动游戏.
+    // 游戏核心由设置页选择，并直接从该路径读取。
     try {
-      const res = await api.checkGameResources()
-      gameResourceOk.value = res.appAsar || res.appBakAsar
+      const status = await api.getGameCoreStatus()
+      gameCoreConfigured.value = status.configured
+      gameCorePath.value = status.path
+      gameResourceOk.value = status.exists
     } catch (error) {
       console.error('[主页] 检测游戏资源失败:', error)
     }

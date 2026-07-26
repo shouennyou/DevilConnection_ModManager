@@ -112,8 +112,6 @@
   const isLoading = ref(true)
   let modLoader: ModIssueMod | null = null
 
-  /** 游戏核心归档不作为模组展示. */
-  const SYSTEM_FILES = new Set(['app.asar', 'app.bak.asar'])
   const CONFIG_FIELD_TYPES = new Set<ModConfigFieldType>(['text', 'password', 'toggle', 'number', 'select'])
   const UNSAFE_CONFIG_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
@@ -273,7 +271,7 @@
     const infoMap = new Map(modInfos.map(info => [info.file, info]))
 
     const entries = orderList
-      .filter(e => e && e.file && !SYSTEM_FILES.has(e.file))
+      .filter(e => e && e.file)
       .toSorted((a, b) => (a.order ?? 9999) - (b.order ?? 9999))
 
     const list: ModInfo[] = []
@@ -677,15 +675,6 @@
     const api = window.api?.modmanager
     const fileApi = window.api?.modloader
     if (!api || !fileApi) return
-
-    // 禁止操作游戏核心归档, 避免破坏游戏资源.
-    if (SYSTEM_FILES.has(file.name)) {
-      await dialogs.alert({
-        title: '文件受限',
-        message: '为了保证程序的稳定性,禁止对核心文件 (app.asar / app.bak.asar) 进行操作。',
-      })
-      return
-    }
 
     const exists = mods.value.some(m => m.file === file.name)
     if (exists) {

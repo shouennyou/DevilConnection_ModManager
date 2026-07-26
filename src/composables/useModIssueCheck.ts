@@ -4,8 +4,6 @@ import { inspectModIssues, type ModIssueMod } from '@/utils/mod-issues'
 import { MOD_ORDER_PATH } from '@/utils/mod-order'
 import { readModLoaderVersion } from '@/utils/modloader-version'
 
-const SYSTEM_FILES = new Set(['app.asar', 'app.bak.asar'])
-
 /** 读取当前启用的模组, 用于启动前执行检查. */
 async function loadModIssues () {
   const api = window.api?.modmanager
@@ -29,7 +27,6 @@ async function loadModIssues () {
       return Boolean(entry)
         && typeof entry === 'object'
         && typeof (entry as ModOrderEntry).file === 'string'
-        && !SYSTEM_FILES.has((entry as ModOrderEntry).file)
     })
     .map(entry => {
       const info: ModMeta | undefined = infoByFile.get(entry.file)

@@ -55,6 +55,21 @@ export interface ModLoaderPackageInfo {
   version: string
 }
 
+/** 已选择游戏核心文件的配置及可访问状态. */
+export interface GameCoreStatus {
+  path: string | null
+  configured: boolean
+  exists: boolean
+}
+
+/** 选择或清除游戏核心文件的结果. */
+export interface GameCoreResult {
+  success: boolean
+  canceled?: boolean
+  path?: string
+  message?: string
+}
+
 /** 下载进度事件, result 存在时表示本次下载已结束. */
 export interface DownloadProgress {
   fileName: string
@@ -93,7 +108,9 @@ export interface ModManagerAPI {
   setModOrder: (orderedMods: ModOrderEntry[]) => Promise<boolean>
   /** 通过主进程发起 HTTP(S) GET 并返回文本, 用于绕过渲染进程 CORS. */
   fetchText: (url: string) => Promise<{ success: boolean, status?: number, text?: string, message?: string }>
-  checkGameResources: () => Promise<{ appAsar: boolean, appBakAsar: boolean }>
+  getGameCoreStatus: () => Promise<GameCoreStatus>
+  selectGameCoreFile: () => Promise<GameCoreResult>
+  clearGameCoreFile: () => Promise<GameCoreResult>
   /** 读取当前 ModLoader 的包名和版本, 兼容开发与打包环境. */
   getModLoaderPackageInfo: () => Promise<ModLoaderPackageInfo | null>
 }
