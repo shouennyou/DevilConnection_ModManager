@@ -119,8 +119,10 @@ export function useBackupRunner () {
       }
     } else if (res.noSave) {
       // 尚无存档时无需备份, 可直接启动游戏.
-      progress.finish(id, 'success', '无存档需备份')
+      progress.remove(id)
       backupStatus.set('success', '暂无存档,无需备份')
+      backupStatus.done = true
+      return
     } else {
       progress.finish(id, 'error', res.message || '备份失败')
       backupStatus.set('error', res.message || '备份失败')
