@@ -1,10 +1,7 @@
 import type { ModLoaderAPI } from '@/types/window-api'
 
-/** ModLoader 版本文件相对 resourcesPath 的路径. */
-export const MODLOADER_VERSION_PATH = 'app.asar/node_modules/dc-modloader/version.json'
-
-/** 旧版 version.json 不含 id 时使用的兼容 ID. */
-const LEGACY_MODLOADER_ID = 'modloader'
+/** ModLoader 包元数据相对 resourcesPath 的路径. */
+export const MODLOADER_VERSION_PATH = 'app.asar/node_modules/devilconnection-modloader/package.json'
 
 export interface ModLoaderVersionInfo {
   id: string
@@ -19,7 +16,7 @@ function nonEmptyString (value: unknown): string | null {
   return text || null
 }
 
-/** 解析 ModLoader 版本文件. 旧版文件缺少 id 时仍按 modloader 处理. */
+/** 解析 ModLoader 包元数据. */
 export function parseModLoaderVersion (content: string | null): ModLoaderVersionInfo | null {
   if (!content) {
     return null
@@ -31,13 +28,14 @@ export function parseModLoaderVersion (content: string | null): ModLoaderVersion
   }
 
   const json = payload as Record<string, unknown>
+  const id = nonEmptyString(json.name)
   const version = nonEmptyString(json.version)
-  if (!version) {
+  if (!id || !version) {
     return null
   }
 
   return {
-    id: nonEmptyString(json.id) ?? LEGACY_MODLOADER_ID,
+    id,
     version,
   }
 }
