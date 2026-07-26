@@ -250,7 +250,7 @@
       const [content, infos, loaderVersion] = await Promise.all([
         api.readFile(MOD_ORDER_PATH),
         api.scanModInfos(),
-        readModLoaderVersion(fileApi),
+        readModLoaderVersion(api),
       ])
       orderList = content ? JSON.parse(content) : []
       modInfos = infos ?? []

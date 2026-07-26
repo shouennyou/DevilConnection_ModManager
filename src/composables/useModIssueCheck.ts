@@ -13,11 +13,10 @@ async function loadModIssues () {
     throw new TypeError('模组管理服务不可用')
   }
 
-  const loaderApi = window.api?.modloader
   const [content, modInfos, loaderVersion] = await Promise.all([
     api.readFile(MOD_ORDER_PATH),
     api.scanModInfos(),
-    loaderApi ? readModLoaderVersion(loaderApi) : Promise.resolve(null),
+    readModLoaderVersion(api),
   ])
   const orderList: unknown = content ? JSON.parse(content) : []
   if (!Array.isArray(orderList)) {

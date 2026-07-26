@@ -1,7 +1,4 @@
-import type { ModLoaderAPI } from '@/types/window-api'
-
-/** ModLoader 包元数据相对 resourcesPath 的路径. */
-export const MODLOADER_VERSION_PATH = 'app.asar/node_modules/devilconnection-modloader/package.json'
+import type { ModManagerAPI } from '@/types/window-api'
 
 export interface ModLoaderVersionInfo {
   id: string
@@ -16,13 +13,8 @@ function nonEmptyString (value: unknown): string | null {
   return text || null
 }
 
-/** 解析 ModLoader 包元数据. */
-export function parseModLoaderVersion (content: string | null): ModLoaderVersionInfo | null {
-  if (!content) {
-    return null
-  }
-
-  const payload: unknown = JSON.parse(content)
+/** 解析由主进程读取的 ModLoader 包元数据. */
+export function parseModLoaderVersion (payload: unknown): ModLoaderVersionInfo | null {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return null
   }
@@ -41,9 +33,9 @@ export function parseModLoaderVersion (content: string | null): ModLoaderVersion
 }
 
 /** 读取当前安装的 ModLoader 标识和版本. */
-export async function readModLoaderVersion (api: Pick<ModLoaderAPI, 'readFile'>): Promise<ModLoaderVersionInfo | null> {
+export async function readModLoaderVersion (api: Pick<ModManagerAPI, 'getModLoaderPackageInfo'>): Promise<ModLoaderVersionInfo | null> {
   try {
-    return parseModLoaderVersion(await api.readFile(MODLOADER_VERSION_PATH))
+    return parseModLoaderVersion(await api.getModLoaderPackageInfo())
   } catch (error) {
     console.error('[ModLoader 版本] 读取本地版本失败:', error)
     return null

@@ -1,4 +1,4 @@
-import type { ModLoaderAPI } from '@/types/window-api'
+import type { ModManagerAPI } from '@/types/window-api'
 import type { Release } from '@/utils/Updater'
 import { ref } from 'vue'
 import { useDialogs } from '@/composables/useDialogs'
@@ -15,8 +15,8 @@ interface ReleaseSummary {
 }
 
 /** 异步读取并解析本地 ModLoader 版本号, 失败时返回 null. */
-async function readLocalModLoaderVersion (ml: ModLoaderAPI): Promise<string | null> {
-  return (await readModLoaderVersion(ml))?.version ?? null
+async function readLocalModLoaderVersion (api: ModManagerAPI): Promise<string | null> {
+  return (await readModLoaderVersion(api))?.version ?? null
 }
 
 /** 模块级更新状态, 在组件和页面之间共享. */
@@ -58,15 +58,15 @@ export function useModLoaderUpdate () {
       return
     }
 
-    const ml = window.api?.modloader
-    if (!ml) {
+    const api = window.api?.modmanager
+    if (!api) {
       statusText.value = '仅在应用内可用'
       return
     }
 
     checking.value = true
     try {
-      const version = await readLocalModLoaderVersion(ml)
+      const version = await readLocalModLoaderVersion(api)
       if (!version) {
         statusText.value = '无法读取本地版本'
         return
@@ -95,11 +95,11 @@ export function useModLoaderUpdate () {
 
   /** 刷新本地 ModLoader 版本, 不依赖更新检查. */
   async function refreshLocalVersion (): Promise<void> {
-    const ml = window.api?.modloader
-    if (!ml) {
+    const api = window.api?.modmanager
+    if (!api) {
       return
     }
-    const v = await readLocalModLoaderVersion(ml)
+    const v = await readLocalModLoaderVersion(api)
     if (v) {
       localVersion.value = v
     }

@@ -49,6 +49,12 @@ export interface DirEntry {
   isAsar: boolean
 }
 
+/** ModLoader 包元数据, 由主进程通过模块自身路径读取. */
+export interface ModLoaderPackageInfo {
+  name: string
+  version: string
+}
+
 /** 下载进度事件, result 存在时表示本次下载已结束. */
 export interface DownloadProgress {
   fileName: string
@@ -88,6 +94,8 @@ export interface ModManagerAPI {
   /** 通过主进程发起 HTTP(S) GET 并返回文本, 用于绕过渲染进程 CORS. */
   fetchText: (url: string) => Promise<{ success: boolean, status?: number, text?: string, message?: string }>
   checkGameResources: () => Promise<{ appAsar: boolean, appBakAsar: boolean }>
+  /** 读取当前 ModLoader 的包名和版本, 兼容开发与打包环境. */
+  getModLoaderPackageInfo: () => Promise<ModLoaderPackageInfo | null>
 }
 
 /**
