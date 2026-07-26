@@ -167,6 +167,79 @@
     <v-card class="mt-4" rounded="lg">
       <v-list lines="two">
         <v-list-subheader class="text-uppercase font-weight-bold">
+          存档导入
+        </v-list-subheader>
+
+        <v-list-item>
+          <template #prepend>
+            <v-icon :color="saveImportStatus.exists ? 'success' : undefined">mdi-folder-account-outline</v-icon>
+          </template>
+
+          <v-list-item-title>原版存档文件夹</v-list-item-title>
+
+          <v-list-item-subtitle
+            class="text-truncate"
+            :title="saveImportStatus.path || undefined"
+          >
+            {{ saveImportStatusText }}
+          </v-list-item-subtitle>
+
+          <template #append>
+            <v-progress-circular
+              v-if="saveImportLoading"
+              color="primary"
+              indeterminate
+              size="22"
+              width="2"
+            />
+
+            <template v-else>
+              <v-btn
+                icon="mdi-folder-open-outline"
+                title="选择原版存档文件夹"
+                variant="text"
+                @click="selectSaveImportDirectory"
+              />
+
+              <v-btn
+                v-if="saveImportStatus.configured"
+                icon="mdi-close"
+                title="清除原版存档文件夹"
+                variant="text"
+                @click="clearSaveImportDirectory"
+              />
+            </template>
+          </template>
+        </v-list-item>
+
+        <v-divider />
+
+        <v-list-item>
+          <template #prepend>
+            <v-icon>mdi-file-import-outline</v-icon>
+          </template>
+
+          <v-list-item-title>复制导入存档</v-list-item-title>
+          <v-list-item-subtitle>复制所选文件夹顶层的 .sav 文件, 不会修改原版存档</v-list-item-subtitle>
+
+          <template #append>
+            <v-btn
+              color="primary"
+              :disabled="!canImportSaves || saveImportLoading"
+              prepend-icon="mdi-file-import-outline"
+              variant="flat"
+              @click="importSaves"
+            >
+              导入
+            </v-btn>
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-card>
+
+    <v-card class="mt-4" rounded="lg">
+      <v-list lines="two">
+        <v-list-subheader class="text-uppercase font-weight-bold">
           平台
         </v-list-subheader>
 
@@ -248,6 +321,7 @@
 </template>
 
 <script setup lang="ts">
+  import type { SaveImportStatus } from '@/types/window-api'
   import { computed, onMounted, ref, watch } from 'vue'
   import { useAppTheme } from '@/composables/useAppTheme'
   import { useDialogs } from '@/composables/useDialogs'
@@ -296,11 +370,24 @@
   const steamLoading = ref(true)
   const gameCoreLoading = ref(false)
   const gameCoreStatus = ref({ path: null as string | null, configured: false, exists: false })
+  const saveImportLoading = ref(false)
+  const saveImportStatus = ref<SaveImportStatus>({ path: null, configured: false, exists: false, count: 0 })
 
   const gameCoreStatusText = computed(() => {
     if (gameCoreStatus.value.exists) return gameCoreStatus.value.path || '已选择游戏核心文件'
     if (gameCoreStatus.value.configured) return '所选文件无法访问，请重新选择'
     return '请选择游戏安装目录中的核心 .asar 文件'
+  })
+
+  const saveImportStatusText = computed(() => {
+    const status = saveImportStatus.value
+    if (status.exists) return `${status.path} (${status.count} 个可导入存档)`
+    if (status.configured) return '所选文件夹无法访问, 请重新选择'
+    return '请选择包含 .sav 文件的原版存档文件夹'
+  })
+
+  const canImportSaves = computed(() => {
+    return saveImportStatus.value.exists && saveImportStatus.value.count > 0
   })
 
   async function loadGameCoreStatus (): Promise<void> {
@@ -358,8 +445,94 @@
     }
   }
 
+  async function loadSaveImportStatus (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api) return
+    try {
+      saveImportStatus.value = await api.getSaveImportStatus()
+    } catch (error) {
+      console.error('[设置页面] 读取存档导入状态失败:', error)
+    }
+  }
+
+  async function selectSaveImportDirectory (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api || saveImportLoading.value) return
+    saveImportLoading.value = true
+    try {
+      const result = await api.selectSaveImportDirectory()
+      if (!result.success && !result.canceled) {
+        await alert({ title: '选择失败', message: result.message || '无法保存存档文件夹路径' })
+      }
+      await loadSaveImportStatus()
+    } catch (error) {
+      console.error('[设置页面] 选择存档文件夹失败:', error)
+      await alert({ title: '选择失败', message: '无法选择存档文件夹' })
+    } finally {
+      saveImportLoading.value = false
+    }
+  }
+
+  async function clearSaveImportDirectory (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api || saveImportLoading.value) return
+    const ok = await confirm({
+      title: '清除存档文件夹',
+      message: '清除后不会删除原版存档, 之后需要重新选择才能导入.',
+      confirmText: '清除',
+      cancelText: '取消',
+      confirmColor: 'error',
+    })
+    if (!ok) return
+
+    saveImportLoading.value = true
+    try {
+      const result = await api.clearSaveImportDirectory()
+      if (!result.success) {
+        await alert({ title: '清除失败', message: result.message || '无法清除存档文件夹路径' })
+      }
+      await loadSaveImportStatus()
+    } catch (error) {
+      console.error('[设置页面] 清除存档文件夹失败:', error)
+      await alert({ title: '清除失败', message: '无法清除存档文件夹路径' })
+    } finally {
+      saveImportLoading.value = false
+    }
+  }
+
+  async function importSaves (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api || !canImportSaves.value || saveImportLoading.value) return
+
+    saveImportLoading.value = true
+    try {
+      let result = await api.importSaves()
+      if (result.needsConfirmation) {
+        const ok = await confirm({
+          title: '替换独立版存档',
+          message: `独立版当前有 ${result.existingCount || 0} 个存档. 导入会先清空这些存档, 再复制原版存档. 原版文件不会被修改.`,
+          confirmText: '清空并导入',
+          cancelText: '取消',
+          confirmColor: 'warning',
+        })
+        if (!ok) return
+        result = await api.importSaves(true)
+      }
+      await (result.success
+        ? alert({ title: '导入成功', message: `已复制 ${result.count || 0} 个存档到独立版, 重启游戏后即可读取.` })
+        : alert({ title: '导入失败', message: result.message || '无法导入存档' }))
+      await loadSaveImportStatus()
+    } catch (error) {
+      console.error('[设置页面] 导入存档失败:', error)
+      await alert({ title: '导入失败', message: '无法导入存档' })
+    } finally {
+      saveImportLoading.value = false
+    }
+  }
+
   onMounted(async () => {
     await loadGameCoreStatus()
+    await loadSaveImportStatus()
     try {
       steamEnabled.value = await window.api?.getSteamEnabled?.() === true
     } catch (error) {

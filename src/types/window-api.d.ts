@@ -70,6 +70,31 @@ export interface GameCoreResult {
   message?: string
 }
 
+/** 已选择外部存档来源目录的配置及可访问状态. */
+export interface SaveImportStatus {
+  path: string | null
+  configured: boolean
+  exists: boolean
+  /** 来源目录顶层可导入的 .sav 文件数. */
+  count: number
+}
+
+/** 选择、清除或导入外部存档的结果. */
+export interface SaveImportResult {
+  success: boolean
+  canceled?: boolean
+  /** 独立版已有存档且尚未确认替换时为 true. */
+  needsConfirmation?: boolean
+  /** 需要确认替换时, 独立版当前 .sav 文件数. */
+  existingCount?: number
+  /** 选择目录时返回保存的绝对路径. */
+  path?: string
+  /** 选择或导入时返回检测或导入的 .sav 文件数. */
+  count?: number
+  noSave?: boolean
+  message?: string
+}
+
 /** 下载进度事件, result 存在时表示本次下载已结束. */
 export interface DownloadProgress {
   fileName: string
@@ -111,6 +136,11 @@ export interface ModManagerAPI {
   getGameCoreStatus: () => Promise<GameCoreStatus>
   selectGameCoreFile: () => Promise<GameCoreResult>
   clearGameCoreFile: () => Promise<GameCoreResult>
+  getSaveImportStatus: () => Promise<SaveImportStatus>
+  selectSaveImportDirectory: () => Promise<SaveImportResult>
+  clearSaveImportDirectory: () => Promise<SaveImportResult>
+  /** replaceExisting 为 true 表示用户已确认清空独立版现有 .sav 文件. */
+  importSaves: (replaceExisting?: boolean) => Promise<SaveImportResult>
   /** 读取当前 ModLoader 的包名和版本, 兼容开发与打包环境. */
   getModLoaderPackageInfo: () => Promise<ModLoaderPackageInfo | null>
 }
