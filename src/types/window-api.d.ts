@@ -70,6 +70,24 @@ export interface GameCoreResult {
   message?: string
 }
 
+/** 主进程选择本地 ASAR 模组的结果. */
+export interface LocalModFileResult {
+  success: boolean
+  canceled?: boolean
+  path?: string
+  fileName?: string
+  size?: number
+  message?: string
+}
+
+/** 主进程导入本地 ASAR 模组的结果. */
+export interface LocalModImportResult {
+  success: boolean
+  fileName?: string
+  size?: number
+  message?: string
+}
+
 /** 打开程序数据目录的结果. */
 export interface DataDirectoryOpenResult {
   success: boolean
@@ -135,6 +153,10 @@ export interface ModManagerAPI {
   /** 异步读取 .asar 内部文件. */
   readAsarFile: (subPath: string) => Promise<string | null>
   scanModInfos: () => Promise<ModMeta[]>
+  /** 使用主进程原生文件对话框选择外部 ASAR 模组. */
+  selectLocalModFile: () => Promise<LocalModFileResult>
+  /** 在主进程将外部 ASAR 复制到模组目录. */
+  importLocalModFile: (sourcePath: string) => Promise<LocalModImportResult>
   downloadAndReplace: (url: string, fileName: string) => Promise<{ success: boolean, message?: string }>
   onDownloadProgress: (callback: (data: DownloadProgress) => void) => void
   setModOrder: (orderedMods: ModOrderEntry[]) => Promise<boolean>

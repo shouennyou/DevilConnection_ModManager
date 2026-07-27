@@ -58,14 +58,6 @@
       </div>
     </v-container>
 
-    <input
-      ref="fileInputEl"
-      accept=".asar"
-      class="d-none"
-      type="file"
-      @change="onFileSelected"
-    >
-
     <ModConfigDialog ref="configDialogRef" />
   </div>
 </template>
@@ -80,7 +72,7 @@
     ModInfo,
     ModUpdateInfo,
   } from '@/types/mod'
-  import type { FsResult, ModMeta, ModOrderEntry } from '@/types/window-api'
+  import type { LocalModFileResult, ModMeta, ModOrderEntry } from '@/types/window-api'
   import semver from 'semver'
   import Sortable from 'sortablejs'
   import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -103,7 +95,6 @@
   const { updateMod } = useModDownload()
 
   const listEl = ref<HTMLElement | null>(null)
-  const fileInputEl = ref<HTMLInputElement | null>(null)
   const configDialogRef = ref<InstanceType<typeof ModConfigDialog> | null>(null)
   const isDragging = ref(false)
   let sortable: Sortable | null = null
@@ -656,31 +647,42 @@
     }
   }
 
-  function handleInstall () {
-    fileInputEl.value?.click()
+  async function handleInstall (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api) return
+    try {
+      const selected = await api.selectLocalModFile()
+      if (!selected.success) {
+        if (!selected.canceled) {
+          await dialogs.alert({ title: '选择失败', message: selected.message || '无法选择本地模组文件' })
+        }
+        return
+      }
+      await installLocalMod(selected)
+    } catch (error) {
+      console.error('[模组管理] 选择本地模组失败:', error)
+      await dialogs.alert({ title: '选择失败', message: '无法选择本地模组文件' })
+    }
   }
 
   function openWorkshop () {
     void router.push('/workshop')
   }
 
-  /** 以流式临时文件写入选中的 asar, 重名时先确认覆盖. */
-  async function onFileSelected (event: Event) {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-    // 重置选择状态, 允许再次选择同一文件.
-    input.value = ''
-    if (!file) return
-
+  /** 将主进程选择的 ASAR 复制到模组目录, 重名时先确认覆盖. */
+  async function installLocalMod (selected: LocalModFileResult): Promise<void> {
     const api = window.api?.modmanager
-    const fileApi = window.api?.modloader
-    if (!api || !fileApi) return
+    if (!api || !selected.path || !selected.fileName) {
+      await dialogs.alert({ title: '导入失败', message: '所选模组文件无效' })
+      return
+    }
 
-    const exists = mods.value.some(m => m.file === file.name)
+    const fileName = selected.fileName
+    const exists = mods.value.some(m => m.file === fileName)
     if (exists) {
       const ok = await dialogs.confirm({
         title: '文件已存在',
-        message: `「${file.name}」已存在,是否覆盖?`,
+        message: `「${fileName}」已存在,是否覆盖?`,
         confirmText: '覆盖',
         cancelText: '取消',
         confirmColor: 'error',
@@ -688,75 +690,28 @@
       if (!ok) return
     }
 
-    const targetPath = `mods/${file.name}`
-    const displayName = file.name.replace(/\.asar$/i, '')
-    progress.start(file.name, { title: '上传模组', label: displayName })
+    const displayName = fileName.replace(/\.asar$/i, '')
+    progress.start(fileName, { title: '导入模组', label: displayName })
 
     try {
-      const result = await uploadFileStream(fileApi, targetPath, file, p => progress.update(file.name, p))
+      const result = await api.importLocalModFile(selected.path)
       if (!result.success) {
-        progress.finish(file.name, 'error', result.error || '写入文件失败')
+        progress.finish(fileName, 'error', result.message || '复制模组文件失败')
         return
       }
-      progress.finish(file.name, 'success')
+      const importedFileName = result.fileName || fileName
+      progress.finish(fileName, 'success')
       // 新增模组需登记到 mod_order.json, 覆盖已有文件时顺序不变.
       if (!exists) {
         const entries = mods.value.map(m => ({ file: m.file, order: m.order, enabled: m.enabled }))
-        entries.push({ file: file.name, order: entries.length + 1, enabled: true })
+        entries.push({ file: importedFileName, order: entries.length + 1, enabled: true })
         await api.setModOrder(entries)
       }
       await loadMods()
-      setTimeout(() => progress.remove(file.name), 3000)
+      setTimeout(() => progress.remove(fileName), 3000)
     } catch (error) {
       console.error('[模组管理] 安装模组失败:', error)
-      progress.finish(file.name, 'error', '读取或写入文件时出错')
-    }
-  }
-
-  /**
-   * 将 File 原生流写入 modloader 流会话.
-   * 仅在成功提交流会话后替换目标文件.
-   */
-  async function uploadFileStream (
-    fileApi: NonNullable<Window['api']>['modloader'],
-    targetPath: string,
-    file: File,
-    onProgress: (percent: number) => void,
-  ): Promise<FsResult> {
-    const opened = await fileApi.createWriteStream(targetPath)
-    if (!opened.success || !opened.id) {
-      return { success: false, error: opened.error || '无法创建文件流' }
-    }
-
-    const streamId = opened.id
-    const reader = file.stream().getReader()
-    let transferred = 0
-    let closed = false
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const result = await fileApi.writeStreamChunk(streamId, value)
-        if (!result.success) return result
-
-        transferred += value.byteLength
-        onProgress(Math.round((transferred / file.size) * 100))
-      }
-
-      const result = await fileApi.closeStream(streamId, true)
-      closed = true
-      if (result.success && file.size === 0) onProgress(100)
-      return result
-    } catch (error) {
-      console.error('[模组管理] 写入模组文件流失败:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : '读取或写入文件流失败',
-      }
-    } finally {
-      reader.releaseLock()
-      if (!closed) await fileApi.closeStream(streamId, false)
+      progress.finish(fileName, 'error', '复制模组文件时出错')
     }
   }
 </script>
