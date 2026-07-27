@@ -70,6 +70,13 @@ export interface GameCoreResult {
   message?: string
 }
 
+/** 打开程序数据目录的结果. */
+export interface DataDirectoryOpenResult {
+  success: boolean
+  path: string
+  message?: string
+}
+
 /** 已选择外部存档来源目录的配置及可访问状态. */
 export interface SaveImportStatus {
   path: string | null
@@ -133,6 +140,10 @@ export interface ModManagerAPI {
   setModOrder: (orderedMods: ModOrderEntry[]) => Promise<boolean>
   /** 通过主进程发起 HTTP(S) GET 并返回文本, 用于绕过渲染进程 CORS. */
   fetchText: (url: string) => Promise<{ success: boolean, status?: number, text?: string, message?: string }>
+  /** 返回程序可写数据目录. */
+  getDataDirectory: () => Promise<string>
+  /** 使用系统文件管理器打开程序数据目录. */
+  openDataDirectory: () => Promise<DataDirectoryOpenResult>
   getGameCoreStatus: () => Promise<GameCoreStatus>
   selectGameCoreFile: () => Promise<GameCoreResult>
   clearGameCoreFile: () => Promise<GameCoreResult>

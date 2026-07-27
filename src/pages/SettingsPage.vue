@@ -45,6 +45,47 @@
     <v-card class="mt-4" rounded="lg">
       <v-list lines="two">
         <v-list-subheader class="text-uppercase font-weight-bold">
+          程序数据
+        </v-list-subheader>
+
+        <v-list-item>
+          <template #prepend>
+            <v-icon>mdi-folder-cog-outline</v-icon>
+          </template>
+
+          <v-list-item-title>数据目录</v-list-item-title>
+
+          <v-list-item-subtitle
+            class="text-truncate"
+            :title="dataDirectoryPath || undefined"
+          >
+            {{ dataDirectoryPath || '正在读取...' }}
+          </v-list-item-subtitle>
+
+          <template #append>
+            <v-progress-circular
+              v-if="dataDirectoryLoading"
+              color="primary"
+              indeterminate
+              size="22"
+              width="2"
+            />
+
+            <v-btn
+              v-else
+              icon="mdi-folder-open-outline"
+              title="打开数据目录"
+              variant="text"
+              @click="openDataDirectory"
+            />
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-card>
+
+    <v-card class="mt-4" rounded="lg">
+      <v-list lines="two">
+        <v-list-subheader class="text-uppercase font-weight-bold">
           游戏核心
         </v-list-subheader>
 
@@ -368,6 +409,8 @@
 
   const steamEnabled = ref(false)
   const steamLoading = ref(true)
+  const dataDirectoryLoading = ref(true)
+  const dataDirectoryPath = ref('')
   const gameCoreLoading = ref(false)
   const gameCoreStatus = ref({ path: null as string | null, configured: false, exists: false })
   const saveImportLoading = ref(false)
@@ -389,6 +432,37 @@
   const canImportSaves = computed(() => {
     return saveImportStatus.value.exists && saveImportStatus.value.count > 0
   })
+
+  async function loadDataDirectory (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api) return
+    dataDirectoryLoading.value = true
+    try {
+      dataDirectoryPath.value = await api.getDataDirectory()
+    } catch (error) {
+      console.error('[设置页面] 读取程序数据目录失败:', error)
+    } finally {
+      dataDirectoryLoading.value = false
+    }
+  }
+
+  async function openDataDirectory (): Promise<void> {
+    const api = window.api?.modmanager
+    if (!api || dataDirectoryLoading.value) return
+    dataDirectoryLoading.value = true
+    try {
+      const result = await api.openDataDirectory()
+      dataDirectoryPath.value = result.path
+      if (!result.success) {
+        await alert({ title: '打开失败', message: result.message || '无法打开程序数据目录' })
+      }
+    } catch (error) {
+      console.error('[设置页面] 打开程序数据目录失败:', error)
+      await alert({ title: '打开失败', message: '无法打开程序数据目录' })
+    } finally {
+      dataDirectoryLoading.value = false
+    }
+  }
 
   async function loadGameCoreStatus (): Promise<void> {
     const api = window.api?.modmanager
@@ -531,8 +605,11 @@
   }
 
   onMounted(async () => {
-    await loadGameCoreStatus()
-    await loadSaveImportStatus()
+    await Promise.all([
+      loadDataDirectory(),
+      loadGameCoreStatus(),
+      loadSaveImportStatus(),
+    ])
     try {
       steamEnabled.value = await window.api?.getSteamEnabled?.() === true
     } catch (error) {
