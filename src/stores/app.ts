@@ -15,6 +15,8 @@ interface AppState {
   checkPreRelease: boolean
   /** 启动后自动检测 ModLoader 更新. */
   autoCheckUpdate: boolean
+  /** 启动游戏窗口时自动打开开发者工具. */
+  debugMode: boolean
 }
 
 const DEFAULTS: AppState = {
@@ -24,6 +26,7 @@ const DEFAULTS: AppState = {
   backupRetainCount: 5,
   checkPreRelease: false,
   autoCheckUpdate: true,
+  debugMode: false,
 }
 
 const CONFIG_PATH = 'config/mod-manager.json'
@@ -76,6 +79,7 @@ function loadSettings (): AppState {
     backupRetainCount: typeof cfg.backupRetainCount === 'number' ? cfg.backupRetainCount : DEFAULTS.backupRetainCount,
     checkPreRelease: typeof cfg.checkPreRelease === 'boolean' ? cfg.checkPreRelease : DEFAULTS.checkPreRelease,
     autoCheckUpdate: typeof cfg.autoCheckUpdate === 'boolean' ? cfg.autoCheckUpdate : DEFAULTS.autoCheckUpdate,
+    debugMode: typeof cfg.debugMode === 'boolean' ? cfg.debugMode : DEFAULTS.debugMode,
   }
 }
 
@@ -88,6 +92,7 @@ export const useAppStore = defineStore('app', () => {
   const backupRetainCount = ref<number>(settings.backupRetainCount)
   const checkPreRelease = ref<boolean>(settings.checkPreRelease)
   const autoCheckUpdate = ref<boolean>(settings.autoCheckUpdate)
+  const debugMode = ref<boolean>(settings.debugMode)
 
   function persist (): void {
     const api = window.api?.modloader
@@ -102,6 +107,7 @@ export const useAppStore = defineStore('app', () => {
       backupRetainCount: backupRetainCount.value,
       checkPreRelease: checkPreRelease.value,
       autoCheckUpdate: autoCheckUpdate.value,
+      debugMode: debugMode.value,
     }
     void api.writeFile(CONFIG_PATH, JSON.stringify(next, null, 2))
   }
@@ -136,6 +142,11 @@ export const useAppStore = defineStore('app', () => {
     persist()
   }
 
+  function setDebugMode (value: boolean): void {
+    debugMode.value = value
+    persist()
+  }
+
   return {
     themeMode,
     autoBackup,
@@ -143,11 +154,13 @@ export const useAppStore = defineStore('app', () => {
     backupRetainCount,
     checkPreRelease,
     autoCheckUpdate,
+    debugMode,
     setThemeMode,
     setAutoBackup,
     setBackupRetainDays,
     setBackupRetainCount,
     setCheckPreRelease,
     setAutoCheckUpdate,
+    setDebugMode,
   }
 })

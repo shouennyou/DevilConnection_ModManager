@@ -358,6 +358,33 @@
       </v-list>
     </v-card>
 
+    <v-card class="mt-4" rounded="lg">
+      <v-list lines="two">
+        <v-list-subheader class="text-uppercase font-weight-bold">
+          开发
+        </v-list-subheader>
+
+        <v-list-item>
+          <template #prepend>
+            <v-icon>mdi-bug-outline</v-icon>
+          </template>
+
+          <v-list-item-title>Debug 模式</v-list-item-title>
+          <v-list-item-subtitle>启用后, 启动游戏窗口时自动打开开发者工具</v-list-item-subtitle>
+
+          <template #append>
+            <v-switch
+              v-model="debugMode"
+              color="primary"
+              density="compact"
+              hide-details
+              inset
+            />
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-card>
+
   </v-container>
 </template>
 
@@ -399,6 +426,9 @@
 
   const autoCheckUpdate = ref(store.autoCheckUpdate)
   watch(autoCheckUpdate, v => store.setAutoCheckUpdate(v))
+
+  const debugMode = ref(store.debugMode)
+  watch(debugMode, v => store.setDebugMode(v))
 
   const checkPreRelease = ref(store.checkPreRelease)
   watch(checkPreRelease, v => {
