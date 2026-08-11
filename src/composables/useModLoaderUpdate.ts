@@ -58,7 +58,7 @@ export function useModLoaderUpdate () {
       return
     }
 
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) {
       statusText.value = '仅在应用内可用'
       return
@@ -95,7 +95,7 @@ export function useModLoaderUpdate () {
 
   /** 刷新本地 ModLoader 版本, 不依赖更新检查. */
   async function refreshLocalVersion (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) {
       return
     }

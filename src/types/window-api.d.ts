@@ -1,4 +1,4 @@
-/** window.api 的类型声明, 仅在 Electron 渲染进程中存在. */
+/** Electron 渲染进程中 window API 的类型声明. */
 
 /** mod_order.json 的单条记录, 保存顺序与启用状态. */
 export interface ModOrderEntry {
@@ -141,7 +141,7 @@ export interface FileStreamReadResult extends FsResult {
   chunk?: Uint8Array
 }
 
-/** window.api.modmanager, 路径均相对 process.resourcesPath. */
+/** window.modmanager, 路径均相对 process.resourcesPath. */
 export interface ModManagerAPI {
   list: (subPath: string) => Promise<DirEntry[]>
   /** 同步读取文件内容, asar 内部路径会自动选择读取方式. */
@@ -216,7 +216,7 @@ export interface FsResult {
   error?: string
 }
 
-/** window.api.modloader, 路径必须解析到 process.resourcesPath 或 ../_storage 内. */
+/** window.modloader, 路径必须解析到 process.resourcesPath 或 ../_storage 内. */
 export interface ModLoaderAPI {
   /** 同步读取文件文本, 失败时返回 null. */
   readFileSync: (subPath: string) => string | null
@@ -311,10 +311,12 @@ export interface BackupAPI {
 
 declare global {
   interface Window {
+    /** 新版模组管理 API. */
+    modmanager?: ModManagerAPI
+    /** 新版模组文件 API. */
+    modloader?: ModLoaderAPI
     api?: {
       [key: string]: unknown
-      modmanager: ModManagerAPI
-      modloader: ModLoaderAPI
       backup: BackupAPI
       /** 由管理器 preload 暴露, 用于创建并聚焦游戏窗口. */
       launchGame?: () => Promise<boolean>

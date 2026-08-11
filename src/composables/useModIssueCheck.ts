@@ -6,7 +6,7 @@ import { readModLoaderVersion } from '@/utils/modloader-version'
 
 /** 读取当前启用的模组, 用于启动前执行检查. */
 async function loadModIssues () {
-  const api = window.api?.modmanager
+  const api = window.modmanager
   if (!api) {
     throw new TypeError('模组管理服务不可用')
   }

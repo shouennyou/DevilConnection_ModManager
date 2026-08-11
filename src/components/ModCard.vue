@@ -225,7 +225,7 @@
     revokeIconUrl()
 
     const icon = resolveIconPath(props.mod.icon)
-    const api = window.api?.modloader
+    const api = window.modloader
     if (!icon || !api || typeof URL.createObjectURL !== 'function') return
 
     try {

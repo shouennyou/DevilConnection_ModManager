@@ -22,7 +22,7 @@ export function useModDownload () {
   const progress = useProgressStore()
 
   function bindProgressListener (): void {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api || progressListenerBound) {
       return
     }
@@ -36,7 +36,7 @@ export function useModDownload () {
   }
 
   async function performDownload (request: ModDownloadRequest): Promise<ModDownloadResult> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) {
       return { success: false, message: '仅在应用内可用' }
     }

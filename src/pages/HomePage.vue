@@ -217,7 +217,7 @@
   })
 
   async function load () {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) return
 
     // 读取模组顺序.

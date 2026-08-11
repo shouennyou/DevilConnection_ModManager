@@ -185,7 +185,7 @@
 
   /** 获取会话目录并按本地 ID 更新安装状态, force 为 true 时刷新远端目录. */
   async function loadWorkshop (force = false): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api || loading.value) return
 
     loading.value = true
@@ -268,7 +268,7 @@
   }
 
   async function registerNewMod (fileName: string): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) throw new Error('仅在应用内可用')
 
     const entries = parseModOrder(await api.readFile(MOD_ORDER_PATH))

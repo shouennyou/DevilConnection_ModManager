@@ -48,7 +48,7 @@ function parseConfig (text: string | null): Record<string, unknown> | null {
 /** 读取配置, 首次读取时将旧版 modloader.json 迁移至新路径. */
 function readConfig (): Record<string, unknown> {
   try {
-    const api = window.api?.modloader
+    const api = window.modloader
     if (!api) {
       return {}
     }
@@ -95,7 +95,7 @@ export const useAppStore = defineStore('app', () => {
   const debugMode = ref<boolean>(settings.debugMode)
 
   function persist (): void {
-    const api = window.api?.modloader
+    const api = window.modloader
     if (!api) {
       return
     }

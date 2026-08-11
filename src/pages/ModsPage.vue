@@ -286,8 +286,8 @@
    * 合并 mod_order.json 与 scanModInfos 元数据, 并异步补充模组大小.
    */
   async function loadMods () {
-    const api = window.api?.modmanager
-    const fileApi = window.api?.modloader
+    const api = window.modmanager
+    const fileApi = window.modloader
     if (!api || !fileApi) {
       console.warn('[模组管理] 文件接口不可用, 可能不在 Electron 环境中')
       isLoading.value = false
@@ -406,7 +406,7 @@
     const update = mod.update
     if (!update) return false
     try {
-      const api = window.api?.modmanager
+      const api = window.modmanager
       if (!api) {
         return false
       }
@@ -548,7 +548,7 @@
 
   /** 将模组顺序和启用状态写回 mod_order.json. */
   async function persistOrder () {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) return
     const entries = mods.value.map(m => ({
       file: m.file,
@@ -571,8 +571,8 @@
   }
 
   async function handleConfig (order: number) {
-    const api = window.api?.modmanager
-    const fileApi = window.api?.modloader
+    const api = window.modmanager
+    const fileApi = window.modloader
     const mod = mods.value.find(item => item.order === order)
     if (!api || !fileApi || !mod) return
 
@@ -647,7 +647,7 @@
   }
 
   async function handleRename (order: number) {
-    const fileApi = window.api?.modloader
+    const fileApi = window.modloader
     const mod = mods.value.find(m => m.order === order)
     if (!fileApi || !mod) return
 
@@ -681,7 +681,7 @@
   }
 
   async function handleUninstall (order: number) {
-    const fileApi = window.api?.modloader
+    const fileApi = window.modloader
     const mod = mods.value.find(m => m.order === order)
     if (!fileApi || !mod) return
 
@@ -714,7 +714,7 @@
   }
 
   async function handleInstall (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) return
     try {
       const selected = await api.selectLocalModFile()
@@ -737,7 +737,7 @@
 
   /** 将主进程选择的 ASAR 复制到模组目录, 重名时先确认覆盖. */
   async function installLocalMod (selected: LocalModFileResult): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api || !selected.path || !selected.fileName) {
       await dialogs.alert({ title: '导入失败', message: '所选模组文件无效' })
       return

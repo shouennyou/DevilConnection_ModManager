@@ -464,7 +464,7 @@
   })
 
   async function loadDataDirectory (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) return
     dataDirectoryLoading.value = true
     try {
@@ -477,7 +477,7 @@
   }
 
   async function openDataDirectory (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api || dataDirectoryLoading.value) return
     dataDirectoryLoading.value = true
     try {
@@ -495,7 +495,7 @@
   }
 
   async function loadGameCoreStatus (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) return
     try {
       gameCoreStatus.value = await api.getGameCoreStatus()
@@ -505,7 +505,7 @@
   }
 
   async function selectGameCore (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api || gameCoreLoading.value) return
     gameCoreLoading.value = true
     try {
@@ -523,7 +523,7 @@
   }
 
   async function clearGameCore (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api || gameCoreLoading.value) return
     const ok = await confirm({
       title: '清除游戏核心',
@@ -550,7 +550,7 @@
   }
 
   async function loadSaveImportStatus (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api) return
     try {
       saveImportStatus.value = await api.getSaveImportStatus()
@@ -560,7 +560,7 @@
   }
 
   async function selectSaveImportDirectory (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api || saveImportLoading.value) return
     saveImportLoading.value = true
     try {
@@ -578,7 +578,7 @@
   }
 
   async function clearSaveImportDirectory (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api || saveImportLoading.value) return
     const ok = await confirm({
       title: '清除存档文件夹',
@@ -605,7 +605,7 @@
   }
 
   async function importSaves (): Promise<void> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (!api || !canImportSaves.value || saveImportLoading.value) return
 
     saveImportLoading.value = true

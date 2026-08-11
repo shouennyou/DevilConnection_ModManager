@@ -120,7 +120,7 @@
 
   /** 优先通过主进程请求, 不可用时降级为浏览器 fetch. */
   async function fetchUrlText (url: string): Promise<string> {
-    const api = window.api?.modmanager
+    const api = window.modmanager
     if (api?.fetchText) {
       const res = await api.fetchText(url)
       if (!res.success || res.text == null) throw new Error(res.message || '请求失败')
