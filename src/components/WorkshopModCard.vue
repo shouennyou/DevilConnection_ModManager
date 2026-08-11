@@ -117,6 +117,7 @@
   import type { WorkshopModInfo } from '@/types/mod'
   import { computed } from 'vue'
   import { githubUrl } from '@/config/repos'
+  import { Search } from '@/utils/Search'
 
   const props = defineProps<{
     mod: WorkshopModInfo
@@ -142,66 +143,8 @@
     }
   }
 
-  interface HighlightPart {
-    text: string
-    matched: boolean
-  }
-
-  function normalizeCharacter (char: string): string {
-    return char.normalize('NFKC').toLocaleLowerCase()
-  }
-
-  function matchStart (characters: string[], term: string[]): number {
-    if (term.length === 0 || term.length > characters.length) return -1
-    for (let start = 0; start <= characters.length - term.length; start++) {
-      if (term.every((char, index) => characters[start + index] === char)) {
-        return start
-      }
-    }
-    return -1
-  }
-
-  function fuzzyMatchIndexes (characters: string[], term: string[]): number[] {
-    const indexes: number[] = []
-    let offset = 0
-    for (const char of term) {
-      const found = characters.indexOf(char, offset)
-      if (found === -1) return []
-      indexes.push(found)
-      offset = found + 1
-    }
-    return indexes
-  }
-
-  /** 将连续或模糊匹配的字符拆分为安全的高亮渲染片段. */
-  function highlightParts (value: string): HighlightPart[] {
-    if (!value || props.searchTerms.length === 0) {
-      return [{ text: value, matched: false }]
-    }
-
-    const characters = Array.from(value)
-    const normalized = characters.map(char => normalizeCharacter(char))
-    const matched = new Set<number>()
-    for (const searchTerm of props.searchTerms) {
-      const term = Array.from(searchTerm).map(char => normalizeCharacter(char))
-      const start = matchStart(normalized, term)
-      const indexes = start === -1
-        ? fuzzyMatchIndexes(normalized, term)
-        : term.map((_, index) => start + index)
-      for (const index of indexes) matched.add(index)
-    }
-
-    const parts: HighlightPart[] = []
-    for (const [index, character] of characters.entries()) {
-      const isMatched = matched.has(index)
-      const last = parts.at(-1)
-      if (last && last.matched === isMatched) {
-        last.text += character
-      } else {
-        parts.push({ text: character, matched: isMatched })
-      }
-    }
-    return parts
+  function highlightParts (value: string) {
+    return Search.highlight(value, props.searchTerms)
   }
 </script>
 

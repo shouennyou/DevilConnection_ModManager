@@ -141,7 +141,7 @@
 <style scoped>
 .app-bar {
   border-bottom: none !important;
-  background: transparent !important;
+  background: rgb(var(--v-theme-background)) !important;
   position: absolute;
   top: 0;
   left: 0;

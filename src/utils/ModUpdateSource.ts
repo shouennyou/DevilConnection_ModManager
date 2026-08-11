@@ -4,6 +4,10 @@ import semver from 'semver'
 
 type UpdateFetcher = Pick<ModManagerAPI, 'fetchText'>
 
+interface FetchOptions {
+  force?: boolean
+}
+
 /** 模组工坊注册表中的单条记录. */
 export interface ModRegistryEntry {
   ids: string[]
@@ -28,18 +32,22 @@ function isRecord (value: unknown): value is Record<string, unknown> {
  * - github: 请求 owner/repo 最新发布版本的固定 update.json 下载地址.
  */
 export class ModUpdateSource {
+  /** 成功的 update.json 响应在应用运行期间复用, 同一 URL 只请求一次. */
+  private static readonly textCache = new Map<string, Promise<string | null>>()
+
   /** 获取指定模组的更新信息, 数组格式会按 targetId 选择对应记录. */
   static async fetch (
     api: UpdateFetcher,
     update: ModUpdateConfig,
     targetId?: string,
+    options: FetchOptions = {},
   ): Promise<ModUpdateInfo | null> {
     const url = this.resolveUrl(update)
     if (!url) {
       return null
     }
 
-    return this.fetchByUrl(api, url, text => this.parse(text, targetId))
+    return this.fetchByUrl(api, url, text => this.parse(text, targetId), options.force === true)
   }
 
   /** 获取并解析工坊展示所需的完整 update.json. */
@@ -47,13 +55,14 @@ export class ModUpdateSource {
     api: UpdateFetcher,
     update: ModUpdateConfig,
     targetId?: string,
+    options: FetchOptions = {},
   ): Promise<ModUpdateManifest | null> {
     const url = this.resolveUrl(update)
     if (!url) {
       return null
     }
 
-    return this.fetchByUrl(api, url, text => this.parseManifest(text, targetId))
+    return this.fetchByUrl(api, url, text => this.parseManifest(text, targetId), options.force === true)
   }
 
   /** 获取同一更新源中多个指定模组的完整元数据, 仅请求一次 update.json. */
@@ -61,15 +70,20 @@ export class ModUpdateSource {
     api: UpdateFetcher,
     update: ModUpdateConfig,
     targetIds: string[],
+    options: FetchOptions = {},
   ): Promise<ModUpdateManifest[]> {
     const url = this.resolveUrl(update)
     if (!url) {
       return []
     }
 
-    const manifests = await this.fetchByUrl(api, url, text => targetIds
-      .map(id => this.parseManifest(text, id))
-      .filter((manifest): manifest is ModUpdateManifest => manifest !== null),
+    const manifests = await this.fetchByUrl(
+      api,
+      url,
+      text => targetIds
+        .map(id => this.parseManifest(text, id))
+        .filter((manifest): manifest is ModUpdateManifest => manifest !== null),
+      options.force === true,
     )
     return manifests ?? []
   }
@@ -188,12 +202,41 @@ export class ModUpdateSource {
     api: UpdateFetcher,
     url: string,
     parse: (text: string) => T | null,
+    force: boolean,
   ): Promise<T | null> {
-    const response = await api.fetchText(url)
-    if (!response.success || !response.text) {
-      return null
+    const text = await this.fetchText(api, url, force)
+    return text ? parse(text) : null
+  }
+
+  /** 缓存成功响应并复用进行中的请求, 请求失败时允许下次重新尝试. */
+  private static fetchText (api: UpdateFetcher, url: string, force: boolean): Promise<string | null> {
+    if (!force) {
+      const cached = this.textCache.get(url)
+      if (cached) {
+        return cached
+      }
     }
-    return parse(response.text)
+
+    const request = api.fetchText(url).then(response => {
+      if (!response.success || !response.text) {
+        return null
+      }
+      return response.text
+    })
+    this.textCache.set(url, request)
+    void request.then(
+      text => {
+        if (text === null && this.textCache.get(url) === request) {
+          this.textCache.delete(url)
+        }
+      },
+      () => {
+        if (this.textCache.get(url) === request) {
+          this.textCache.delete(url)
+        }
+      },
+    )
+    return request
   }
 
   private static parseJson (text: string): unknown {

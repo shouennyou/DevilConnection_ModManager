@@ -38,16 +38,45 @@
         </div>
       </section>
 
-      <div v-show="mods.length > 0" ref="listEl" class="mod-list">
-        <!-- 使用位置索引作为 key, 使 SortableJS 与 Vue 按同一位置顺序更新. -->
+      <div v-show="mods.length > 0" class="mods-toolbar mb-3">
+        <v-text-field
+          v-model="searchQuery"
+          class="mods-search"
+          clearable
+          density="compact"
+          hide-details
+          label="搜索模组"
+          prepend-inner-icon="mdi-magnify"
+          variant="outlined"
+        />
+
+        <v-btn-toggle
+          v-model="statusFilter"
+          class="mods-status-filter"
+          color="primary"
+          density="compact"
+          mandatory
+        >
+          <v-btn value="all">全部</v-btn>
+          <v-btn value="enabled">启用</v-btn>
+          <v-btn value="disabled">禁用</v-btn>
+        </v-btn-toggle>
+      </div>
+
+      <div
+        v-show="mods.length > 0 && filteredMods.length > 0"
+        ref="listEl"
+        class="mod-list"
+        :class="{ 'mod-list--filtered': isListFiltered }"
+      >
         <div
-          v-for="(mod, index) in mods"
-          :key="index"
+          v-for="mod in filteredMods"
+          :key="mod.file"
           class="mod-list-item"
         >
           <ModCard
-            :index="index"
             :mod="mod"
+            :search-terms="searchTerms"
             @config="handleConfig"
             @rename="handleRename"
             @toggle="handleToggle"
@@ -56,6 +85,15 @@
           />
         </div>
       </div>
+
+      <section
+        v-if="mods.length > 0 && filteredMods.length === 0"
+        aria-live="polite"
+        class="mods-state"
+      >
+        <v-icon color="primary" icon="mdi-magnify" size="48" />
+        <div class="text-subtitle-1 font-weight-bold mt-4">没有匹配的模组</div>
+      </section>
     </v-container>
 
     <ModConfigDialog ref="configDialogRef" />
@@ -75,7 +113,7 @@
   import type { LocalModFileResult, ModMeta, ModOrderEntry } from '@/types/window-api'
   import semver from 'semver'
   import Sortable from 'sortablejs'
-  import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+  import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import ModConfigDialog from '@/components/dialogs/ModConfigDialog.vue'
   import ModCard from '@/components/ModCard.vue'
@@ -87,6 +125,7 @@
   import { MOD_ORDER_PATH } from '@/utils/mod-order'
   import { readModLoaderVersion } from '@/utils/modloader-version'
   import { ModUpdateSource } from '@/utils/ModUpdateSource'
+  import { Search } from '@/utils/Search'
 
   const dialogs = useDialogs()
   const router = useRouter()
@@ -97,14 +136,36 @@
   const listEl = ref<HTMLElement | null>(null)
   const configDialogRef = ref<InstanceType<typeof ModConfigDialog> | null>(null)
   const isDragging = ref(false)
-  let sortable: Sortable | null = null
+  type SortableWithOptions = Sortable & {
+    option: (name: 'disabled', value: boolean) => void
+  }
+  let sortable: SortableWithOptions | null = null
 
   const mods = ref<ModInfo[]>([])
   const isLoading = ref(true)
+  const searchQuery = ref('')
+  const statusFilter = ref<ModStatusFilter>('all')
   let modLoader: ModIssueMod | null = null
+
+  type ModStatusFilter = 'all' | 'enabled' | 'disabled'
 
   const CONFIG_FIELD_TYPES = new Set<ModConfigFieldType>(['text', 'password', 'toggle', 'number', 'select'])
   const UNSAFE_CONFIG_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+  const searchTerms = computed(() => Search.getTerms(searchQuery.value))
+  const isListFiltered = computed(() => searchTerms.value.length > 0 || statusFilter.value !== 'all')
+  const filteredMods = computed(() => mods.value.filter(mod => {
+    if (statusFilter.value === 'enabled' && !mod.enabled) return false
+    if (statusFilter.value === 'disabled' && mod.enabled) return false
+    return Search.matches(searchTerms.value, [
+      mod.name,
+      mod.file,
+      mod.id,
+      ...(mod.author ?? []),
+      mod.description,
+      mod.version,
+    ])
+  }))
 
   /** 模组仅允许作为 mods 根目录中的单层条目. */
   function isModEntryName (name: string): boolean {
@@ -428,6 +489,7 @@
     if (!listEl.value) return
     sortable = Sortable.create(listEl.value, {
       animation: 200,
+      disabled: isListFiltered.value,
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
@@ -457,7 +519,7 @@
 
         persistOrder()
       },
-    })
+    }) as SortableWithOptions
   })
 
   onBeforeUnmount(() => {
@@ -466,6 +528,10 @@
   })
 
   watch(installSignal, () => handleInstall())
+
+  watch(isListFiltered, filtered => {
+    sortable?.option('disabled', filtered)
+  })
 
   /** 恢复 SortableJS 改动的 DOM, 避免 Vue 更新时出现索引偏移. */
   function revertSortableDom (item: HTMLElement, parent: HTMLElement, originalIndex: number) {
@@ -729,6 +795,32 @@
   gap: 12px;
 }
 
+.mods-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: sticky;
+  top: 88px;
+  z-index: 10;
+  padding: 8px 0 12px;
+  background: rgb(var(--v-theme-background));
+}
+
+.mods-search {
+  flex: 0 1 440px;
+  max-width: 440px;
+}
+
+.mods-status-filter {
+  flex: 0 0 auto;
+}
+
+.mod-list--filtered .mod-list-item {
+  cursor: default;
+  touch-action: auto;
+}
+
 .mods-state {
   min-height: min(52vh, 420px);
   display: flex;
@@ -755,6 +847,27 @@
 
 .mod-list-item:active {
   cursor: grabbing;
+}
+
+@media (max-width: 599px) {
+  .mods-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mods-search {
+    flex-basis: auto;
+    max-width: none;
+    width: 100%;
+  }
+
+  .mods-status-filter {
+    align-self: stretch;
+  }
+
+  .mods-status-filter :deep(.v-btn) {
+    flex: 1 1 0;
+  }
 }
 </style>
 

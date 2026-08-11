@@ -7,7 +7,10 @@
     <v-card-text class="pa-4">
       <div class="mod-card__header mb-2">
         <span class="mod-card__name text-subtitle-1 font-weight-bold text-truncate">
-          {{ displayName }}
+          <template v-for="(part, index) in highlightParts(displayName)" :key="index">
+            <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
+            <template v-else>{{ part.text }}</template>
+          </template>
         </span>
 
         <v-chip class="mod-card__priority" color="primary" size="x-small" variant="tonal">
@@ -26,9 +29,29 @@
       </div>
 
       <div class="text-caption text-medium-emphasis mb-2">
-        <span v-if="mod.version">{{ mod.version }}</span>
-        <span v-if="mod.author?.length"> · {{ mod.author.join(', ') }}</span>
-        <span v-if="mod.id"> · {{ mod.id }}</span>
+        <span v-if="mod.version">
+          <template v-for="(part, index) in highlightParts(mod.version)" :key="index">
+            <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
+            <template v-else>{{ part.text }}</template>
+          </template>
+        </span>
+
+        <span v-if="mod.author?.length">
+          ·
+          <template v-for="(part, index) in highlightParts(mod.author.join(', '))" :key="index">
+            <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
+            <template v-else>{{ part.text }}</template>
+          </template>
+        </span>
+
+        <span v-if="mod.id">
+          ·
+          <template v-for="(part, index) in highlightParts(mod.id)" :key="index">
+            <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
+            <template v-else>{{ part.text }}</template>
+          </template>
+        </span>
+
         <span v-if="mod.sizeText"> · {{ mod.sizeText }}</span>
       </div>
 
@@ -36,7 +59,10 @@
         v-if="mod.description"
         class="multiline-text text-body-2 text-medium-emphasis mb-0"
       >
-        {{ mod.description }}
+        <template v-for="(part, index) in highlightParts(mod.description)" :key="index">
+          <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
+          <template v-else>{{ part.text }}</template>
+        </template>
       </p>
 
       <div
@@ -126,7 +152,8 @@
 
 <script setup lang="ts">
   import type { ModInfo } from '@/types/mod'
-  import { computed, onBeforeUnmount, ref, watch } from 'vue'
+  import { computed, onBeforeUnmount, type PropType, ref, watch } from 'vue'
+  import { Search } from '@/utils/Search'
 
   const ICON_MIME_TYPES: Record<string, string> = {
     avif: 'image/avif',
@@ -143,8 +170,8 @@
       type: Object as () => ModInfo,
       required: true,
     },
-    index: {
-      type: Number,
+    searchTerms: {
+      type: Array as PropType<string[]>,
       required: true,
     },
   })
@@ -165,6 +192,10 @@
     return { '--mod-card-icon': `url("${iconUrl.value}")` }
   })
   let loadId = 0
+
+  function highlightParts (value: string) {
+    return Search.highlight(value, props.searchTerms)
+  }
 
   function resolveIconPath (value: string | undefined): { path: string, mimeType: string } | null {
     const rawPath = typeof value === 'string' ? value.trim() : ''
@@ -273,6 +304,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 10px;
+}
+
+.search-highlight {
+  padding: 0 1px;
+  border-radius: 2px;
+  color: inherit;
+  background: rgba(255, 235, 59, 0.5);
 }
 
 @media (max-width: 600px) {

@@ -82,6 +82,7 @@
   import { useModDownload } from '@/composables/useModDownload'
   import { useWorkshopActions } from '@/composables/useWorkshopActions'
   import { useProgressStore } from '@/stores/progress'
+  import { Search } from '@/utils/Search'
 
   const REGISTRY_URL = 'https://raw.githubusercontent.com/shouennyou/DC_mod_registry/main/registry.json'
 
@@ -95,11 +96,12 @@
     unavailableCount: number
   }
 
-  let sessionCatalog: WorkshopCatalog | null = null
+  // 模块作用域缓存会在页面切换时保留, 并在应用退出后自动释放.
+  let cachedCatalog: WorkshopCatalog | null = null
   let catalogRequest: Promise<WorkshopCatalog> | null = null
 
   async function fetchWorkshopCatalog (api: ModManagerAPI, force: boolean): Promise<WorkshopCatalog> {
-    if (!force && sessionCatalog) return sessionCatalog
+    if (!force && cachedCatalog) return cachedCatalog
     if (catalogRequest) return catalogRequest
 
     catalogRequest = (async () => {
@@ -112,12 +114,12 @@
         throw new Error('工坊注册表格式无效')
       }
 
-      const results = await Promise.all(registry.map(entry => fetchCatalogItems(api, entry)))
+      const results = await Promise.all(registry.map(entry => fetchCatalogItems(api, entry, force)))
       const catalog = {
         items: results.flat(),
         unavailableCount: registry.reduce((count, entry) => count + entry.ids.length, 0) - results.flat().length,
       }
-      sessionCatalog = catalog
+      cachedCatalog = catalog
       return catalog
     })()
 
@@ -128,8 +130,13 @@
     }
   }
 
-  async function fetchCatalogItems (api: ModManagerAPI, entry: ModRegistryEntry): Promise<WorkshopCatalogItem[]> {
-    const manifests = await ModUpdateSource.fetchManifests(api, { source: 'github', repo: entry.repo }, entry.ids)
+  async function fetchCatalogItems (api: ModManagerAPI, entry: ModRegistryEntry, force: boolean): Promise<WorkshopCatalogItem[]> {
+    const manifests = await ModUpdateSource.fetchManifests(
+      api,
+      { source: 'github', repo: entry.repo },
+      entry.ids,
+      { force },
+    )
     return manifests.map(manifest => ({ repo: entry.repo, manifest }))
   }
 
@@ -162,33 +169,18 @@
     return installed
   }
 
-  function normalizeSearchText (value: string): string {
-    return value.normalize('NFKC').toLocaleLowerCase()
-  }
-
-  function isFuzzyMatch (text: string, query: string): boolean {
-    let index = 0
-    for (const char of query) {
-      index = text.indexOf(char, index)
-      if (index === -1) return false
-      index++
-    }
-    return true
-  }
-
   const searchTerms = computed(() =>
-    normalizeSearchText(searchQuery.value).split(/\s+/).filter(Boolean),
+    Search.getTerms(searchQuery.value),
   )
 
   const filteredMods = computed(() => {
     const terms = searchTerms.value
     if (terms.length === 0) return mods.value
 
-    return mods.value.filter(mod => {
-      const fields = [mod.name, mod.id, ...mod.author, mod.description, mod.version, mod.repo]
-        .map(field => normalizeSearchText(field))
-      return terms.every(term => fields.some(field => field.includes(term) || isFuzzyMatch(field, term)))
-    })
+    return mods.value.filter(mod => Search.matches(
+      terms,
+      [mod.name, mod.id, ...mod.author, mod.description, mod.version, mod.repo],
+    ))
   })
 
   /** 获取会话目录并按本地 ID 更新安装状态, force 为 true 时刷新远端目录. */
@@ -229,7 +221,7 @@
       }
     } catch (error) {
       console.error('[模组工坊] 加载工坊失败:', error)
-      if (!sessionCatalog) mods.value = []
+      if (!cachedCatalog) mods.value = []
       loadError.value = error instanceof Error ? error.message : '加载工坊失败'
     } finally {
       loading.value = false
@@ -335,6 +327,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: sticky;
+    top: 88px;
+    z-index: 10;
+    padding: 8px 0 12px;
+    background: rgb(var(--v-theme-background));
   }
 
   .workshop-search {
