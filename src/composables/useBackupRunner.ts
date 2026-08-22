@@ -26,7 +26,7 @@ export function useBackupRunner () {
     const res = await api.create(name)
     if (res.success) {
       progress.finish(id, 'success')
-      setTimeout(() => progress.remove(id), 3000)
+      progress.scheduleRemove(id)
       return true
     }
     progress.finish(id, 'error', res.message || '备份失败')
@@ -44,7 +44,7 @@ export function useBackupRunner () {
     const res = await api.restore(file)
     if (res.success) {
       progress.finish(id, 'success')
-      setTimeout(() => progress.remove(id), 3000)
+      progress.scheduleRemove(id)
       return true
     }
     progress.finish(id, 'error', res.message || '恢复失败')
@@ -72,7 +72,7 @@ export function useBackupRunner () {
     const id = `backup-import-${res.file}`
     progress.start(id, { title: '导入备份', label: res.file || '', indeterminate: true })
     progress.finish(id, 'success')
-    setTimeout(() => progress.remove(id), 3000)
+    progress.scheduleRemove(id)
     return { ok: true }
   }
 
@@ -103,7 +103,7 @@ export function useBackupRunner () {
       const message = error instanceof Error && error.message ? error.message : '备份服务异常'
       progress.finish(id, 'error', message)
       backupStatus.set('error', message)
-      setTimeout(() => progress.remove(id), 3000)
+      progress.scheduleRemove(id)
       backupStatus.done = true
       return
     }
@@ -127,7 +127,7 @@ export function useBackupRunner () {
       progress.finish(id, 'error', res.message || '备份失败')
       backupStatus.set('error', res.message || '备份失败')
     }
-    setTimeout(() => progress.remove(id), 3000)
+    progress.scheduleRemove(id)
     backupStatus.done = true
   }
 

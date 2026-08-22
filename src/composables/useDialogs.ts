@@ -12,6 +12,10 @@ const renameRef = ref<InstanceType<typeof RenameDialog> | null>(null)
 const updateRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
 
 function useDialogs () {
+  function errorMessage (error: unknown, fallback = '操作失败'): string {
+    return error instanceof Error && error.message ? error.message : fallback
+  }
+
   async function confirm (options: {
     title?: string
     message: string
@@ -30,6 +34,11 @@ function useDialogs () {
     confirmText?: string
   }): Promise<void> {
     await confirmRef.value?.open({ ...options, hideCancel: true })
+  }
+
+  /** 将异常统一转换为用户可读的提示. */
+  async function showError (error: unknown, fallback = '操作失败'): Promise<void> {
+    await alert({ title: '操作失败', message: errorMessage(error, fallback) })
   }
 
   /** 显示模组重复, 冲突或依赖问题提示. */
@@ -53,6 +62,8 @@ function useDialogs () {
   return {
     confirm,
     alert,
+    showError,
+    errorMessage,
     showModIssue,
     rename,
     showUpdate,

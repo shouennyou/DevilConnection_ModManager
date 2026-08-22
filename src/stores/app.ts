@@ -31,6 +31,15 @@ const DEFAULTS: AppState = {
 
 const CONFIG_PATH = 'config/mod-manager.json'
 const LEGACY_CONFIG_PATH = 'config/modloader.json'
+let configWriteQueue: Promise<void> = Promise.resolve()
+
+function isThemeMode (value: unknown): value is ThemeMode {
+  return ['light', 'dark', 'system'].includes(value as string)
+}
+
+function readFiniteNumber (value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
 
 function parseConfig (text: string | null): Record<string, unknown> | null {
   if (!text) {
@@ -60,7 +69,7 @@ function readConfig (): Record<string, unknown> {
 
     const legacy = parseConfig(api.readFileSync(LEGACY_CONFIG_PATH))
     if (legacy) {
-      void api.writeFile(CONFIG_PATH, JSON.stringify(legacy, null, 2))
+      queueConfigWrite(legacy)
       return legacy
     }
   } catch (error) {
@@ -70,13 +79,31 @@ function readConfig (): Record<string, unknown> {
   return {}
 }
 
+/** 将配置写入串行队列, 避免快速修改设置时旧写入覆盖新值. */
+function queueConfigWrite (config: Record<string, unknown>): void {
+  configWriteQueue = configWriteQueue
+    .then(async () => {
+      const api = window.modloader
+      if (!api) {
+        return
+      }
+      const result = await api.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2))
+      if (!result.success) {
+        console.error('[应用配置] 写入配置失败:', result.error)
+      }
+    })
+    .catch(error => {
+      console.error('[应用配置] 写入配置失败:', error)
+    })
+}
+
 function loadSettings (): AppState {
   const cfg = readConfig()
   return {
-    themeMode: (cfg.themeMode as ThemeMode) ?? DEFAULTS.themeMode,
+    themeMode: isThemeMode(cfg.themeMode) ? cfg.themeMode : DEFAULTS.themeMode,
     autoBackup: typeof cfg.autoBackup === 'boolean' ? cfg.autoBackup : DEFAULTS.autoBackup,
-    backupRetainDays: typeof cfg.backupRetainDays === 'number' ? cfg.backupRetainDays : DEFAULTS.backupRetainDays,
-    backupRetainCount: typeof cfg.backupRetainCount === 'number' ? cfg.backupRetainCount : DEFAULTS.backupRetainCount,
+    backupRetainDays: readFiniteNumber(cfg.backupRetainDays, DEFAULTS.backupRetainDays),
+    backupRetainCount: readFiniteNumber(cfg.backupRetainCount, DEFAULTS.backupRetainCount),
     checkPreRelease: typeof cfg.checkPreRelease === 'boolean' ? cfg.checkPreRelease : DEFAULTS.checkPreRelease,
     autoCheckUpdate: typeof cfg.autoCheckUpdate === 'boolean' ? cfg.autoCheckUpdate : DEFAULTS.autoCheckUpdate,
     debugMode: typeof cfg.debugMode === 'boolean' ? cfg.debugMode : DEFAULTS.debugMode,
@@ -109,7 +136,7 @@ export const useAppStore = defineStore('app', () => {
       autoCheckUpdate: autoCheckUpdate.value,
       debugMode: debugMode.value,
     }
-    void api.writeFile(CONFIG_PATH, JSON.stringify(next, null, 2))
+    queueConfigWrite(next)
   }
 
   function setThemeMode (mode: ThemeMode): void {

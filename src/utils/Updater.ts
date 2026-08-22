@@ -28,6 +28,22 @@ function parseVersion (tag: string): string {
   return valid(tag) ?? coerce(tag)?.version ?? tag.replace(/^v/i, '')
 }
 
+function compareReleaseVersions (a: Release, b: Release): number {
+  const aVersion = valid(a.version)
+  const bVersion = valid(b.version)
+  if (aVersion && bVersion) {
+    return compare(bVersion, aVersion)
+  }
+  // 非法版本始终排在合法版本之后, 两者均非法时保留 GitHub 返回顺序.
+  if (aVersion) {
+    return -1
+  }
+  if (bVersion) {
+    return 1
+  }
+  return 0
+}
+
 export interface Asset {
   name: string
   size: number
@@ -124,9 +140,7 @@ class Updater {
     const stable = releases.filter(r => !r.isPrerelease)
     const preview = releases.filter(r => r.isPrerelease)
 
-    const allSorted = [...stable, ...preview].toSorted((a, b) =>
-      compare(b.version, a.version),
-    )
+    const allSorted = [...stable, ...preview].toSorted(compareReleaseVersions)
 
     const latestStable = this.selectLatest(releases, r => !r.isPrerelease)
     const latestPreview = this.selectLatest(releases, r => r.isPrerelease)

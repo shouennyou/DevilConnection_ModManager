@@ -304,7 +304,7 @@
         await registerNewMod(fileName)
       }
       await loadWorkshop()
-      setTimeout(() => progress.remove(fileName), 3000)
+      progress.scheduleRemove(fileName)
     } catch (error) {
       console.error('[模组工坊] 下载模组失败:', error)
       progress.finish(fileName, 'error', error instanceof Error ? error.message : '下载失败')
