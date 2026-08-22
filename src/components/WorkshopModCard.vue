@@ -1,7 +1,7 @@
 <template>
   <v-card class="workshop-mod-card" @click="openRepository">
     <v-card-text class="pa-4">
-      <div class="workshop-mod-header mb-2">
+      <div class="workshop-mod-header" :class="{ 'mb-2': !props.compact }">
         <span class="workshop-mod-title text-subtitle-1 font-weight-bold text-truncate">
           <template v-for="(part, index) in highlightParts(displayName)" :key="index">
             <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
@@ -35,81 +35,85 @@
         </div>
       </div>
 
-      <div class="text-caption text-medium-emphasis mb-2">
-        <span v-if="mod.version">
-          <template v-for="(part, index) in highlightParts(mod.version)" :key="index">
+      <template v-if="!props.compact">
+        <div class="text-caption text-medium-emphasis mb-2">
+          <span v-if="mod.version">
+            <template v-for="(part, index) in highlightParts(mod.version)" :key="index">
+              <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
+              <template v-else>{{ part.text }}</template>
+            </template>
+          </span>
+
+          <span v-if="displayAuthors">
+            ·
+            <template v-for="(part, index) in highlightParts(displayAuthors)" :key="index">
+              <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
+              <template v-else>{{ part.text }}</template>
+            </template>
+          </span>
+
+          <span>
+            ·
+            <template v-for="(part, index) in highlightParts(mod.id)" :key="index">
+              <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
+              <template v-else>{{ part.text }}</template>
+            </template>
+          </span>
+
+          <span v-if="mod.installed"> · 已安装 {{ mod.installed.version || '未知版本' }}</span>
+        </div>
+
+        <p
+          v-if="mod.description"
+          class="multiline-text text-body-2 text-medium-emphasis mb-0"
+        >
+          <template v-for="(part, index) in highlightParts(mod.description)" :key="index">
             <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
             <template v-else>{{ part.text }}</template>
           </template>
-        </span>
-
-        <span v-if="displayAuthors">
-          ·
-          <template v-for="(part, index) in highlightParts(displayAuthors)" :key="index">
-            <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
-            <template v-else>{{ part.text }}</template>
-          </template>
-        </span>
-
-        <span>
-          ·
-          <template v-for="(part, index) in highlightParts(mod.id)" :key="index">
-            <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
-            <template v-else>{{ part.text }}</template>
-          </template>
-        </span>
-
-        <span v-if="mod.installed"> · 已安装 {{ mod.installed.version || '未知版本' }}</span>
-      </div>
-
-      <p
-        v-if="mod.description"
-        class="multiline-text text-body-2 text-medium-emphasis mb-0"
-      >
-        <template v-for="(part, index) in highlightParts(mod.description)" :key="index">
-          <mark v-if="part.matched" class="search-highlight">{{ part.text }}</mark>
-          <template v-else>{{ part.text }}</template>
-        </template>
-      </p>
+        </p>
+      </template>
     </v-card-text>
 
-    <v-divider />
+    <template v-if="!props.compact">
+      <v-divider />
 
-    <v-card-actions class="px-3 py-2">
-      <v-btn
-        v-if="!mod.installed"
-        color="primary"
-        :disabled="!mod.asarUrl"
-        :loading="downloading"
-        prepend-icon="mdi-download"
-        variant="flat"
-        @click.stop="emit('download', mod)"
-      >
-        下载
-      </v-btn>
+      <v-card-actions class="px-3 py-2">
+        <v-btn
+          v-if="!mod.installed"
+          color="primary"
+          :disabled="!mod.asarUrl"
+          :loading="downloading"
+          prepend-icon="mdi-download"
+          variant="flat"
+          @click.stop="emit('download', mod)"
+        >
+          下载
+        </v-btn>
 
-      <v-btn
-        v-else-if="mod.hasUpdate"
-        color="primary"
-        :disabled="!mod.asarUrl"
-        :loading="downloading"
-        prepend-icon="mdi-refresh"
-        variant="flat"
-        @click.stop="emit('download', mod)"
-      >
-        更新
-      </v-btn>
+        <v-btn
+          v-else-if="mod.hasUpdate"
+          color="primary"
+          :disabled="!mod.asarUrl"
+          :loading="downloading"
+          prepend-icon="mdi-refresh"
+          variant="flat"
+          @click.stop="emit('download', mod)"
+        >
+          更新
+        </v-btn>
 
-      <v-chip
-        v-else
-        color="success"
-        prepend-icon="mdi-check"
-        size="small"
-        variant="tonal"
-      >
-        已安装
-      </v-chip>
-    </v-card-actions>
+        <v-chip
+          v-else
+          color="success"
+          prepend-icon="mdi-check"
+          size="small"
+          variant="tonal"
+        >
+          已安装
+        </v-chip>
+      </v-card-actions>
+    </template>
   </v-card>
 </template>
 
@@ -123,6 +127,7 @@
     mod: WorkshopModInfo
     downloading: boolean
     searchTerms: string[]
+    compact?: boolean
   }>()
 
   const emit = defineEmits<{

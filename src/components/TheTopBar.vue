@@ -54,6 +54,16 @@
         />
 
         <v-btn
+          v-if="showCompactToggle"
+          :aria-label="compactMode ? '展开模组卡片' : '收缩模组卡片'"
+          :icon="compactMode ? 'mdi-view-agenda-outline' : 'mdi-view-compact-outline'"
+          size="small"
+          :title="compactMode ? '展开模组卡片' : '收缩模组卡片'"
+          variant="text"
+          @click="toggleCompactMode"
+        />
+
+        <v-btn
           v-if="showCreateBackup"
           icon="mdi-content-save-plus-outline"
           size="small"
@@ -80,7 +90,7 @@
           @click="$router.push('/about')"
         />
 
-        <div v-if="!showBack && !showModCheck && !showWorkshopRefresh && !showWorkshop && !showAbout && !showInstall && !showCreateBackup" class="entry-placeholder" />
+        <div v-if="!showBack && !showModCheck && !showWorkshopRefresh && !showWorkshop && !showAbout && !showInstall && !showCompactToggle && !showCreateBackup" class="entry-placeholder" />
       </div>
     </div>
   </v-app-bar>
@@ -94,6 +104,7 @@
   import { useModActions } from '@/composables/useModActions'
   import { useModIssueCheck } from '@/composables/useModIssueCheck'
   import { useWorkshopActions } from '@/composables/useWorkshopActions'
+  import { useAppStore } from '@/stores/app'
 
   const route = useRoute()
   const { mobile } = useDisplay()
@@ -101,6 +112,7 @@
   const { checkCurrentStatus } = useModIssueCheck()
   const { requestCreate: requestCreateBackup, requestImport: requestImportBackup } = useBackupActions()
   const { requestRefresh } = useWorkshopActions()
+  const appStore = useAppStore()
   const isCheckingModIssues = ref(false)
 
   const pageTitle = computed(() => {
@@ -119,10 +131,20 @@
   const showModCheck = computed(() => route.name === 'mods')
   const showWorkshopRefresh = computed(() => route.name === 'workshop')
   const showInstall = computed(() => route.name === 'mods')
+  const showCompactToggle = computed(() => route.name === 'mods' || route.name === 'workshop')
+  const compactMode = computed(() => route.name === 'mods' ? appStore.modsCompact : appStore.workshopCompact)
   const showCreateBackup = computed(() => route.name === 'backup')
   const showAbout = computed(() => route.name === 'home')
   // 仅在移动端的工坊和关于页面显示返回按钮.
   const showBack = computed(() => mobile.value && (route.name === 'workshop' || route.name === 'about'))
+
+  function toggleCompactMode (): void {
+    if (route.name === 'mods') {
+      appStore.setModsCompact(!appStore.modsCompact)
+    } else if (route.name === 'workshop') {
+      appStore.setWorkshopCompact(!appStore.workshopCompact)
+    }
+  }
 
   async function checkModIssues () {
     if (isCheckingModIssues.value) {

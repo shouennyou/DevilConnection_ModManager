@@ -17,6 +17,10 @@ interface AppState {
   autoCheckUpdate: boolean
   /** 启动游戏窗口时自动打开开发者工具. */
   debugMode: boolean
+  /** 模组管理页面是否使用紧凑卡片. */
+  modsCompact: boolean
+  /** 模组工坊页面是否使用紧凑卡片. */
+  workshopCompact: boolean
 }
 
 const DEFAULTS: AppState = {
@@ -27,6 +31,8 @@ const DEFAULTS: AppState = {
   checkPreRelease: false,
   autoCheckUpdate: true,
   debugMode: false,
+  modsCompact: false,
+  workshopCompact: false,
 }
 
 const CONFIG_PATH = 'config/mod-manager.json'
@@ -107,6 +113,8 @@ function loadSettings (): AppState {
     checkPreRelease: typeof cfg.checkPreRelease === 'boolean' ? cfg.checkPreRelease : DEFAULTS.checkPreRelease,
     autoCheckUpdate: typeof cfg.autoCheckUpdate === 'boolean' ? cfg.autoCheckUpdate : DEFAULTS.autoCheckUpdate,
     debugMode: typeof cfg.debugMode === 'boolean' ? cfg.debugMode : DEFAULTS.debugMode,
+    modsCompact: typeof cfg.modsCompact === 'boolean' ? cfg.modsCompact : DEFAULTS.modsCompact,
+    workshopCompact: typeof cfg.workshopCompact === 'boolean' ? cfg.workshopCompact : DEFAULTS.workshopCompact,
   }
 }
 
@@ -120,6 +128,8 @@ export const useAppStore = defineStore('app', () => {
   const checkPreRelease = ref<boolean>(settings.checkPreRelease)
   const autoCheckUpdate = ref<boolean>(settings.autoCheckUpdate)
   const debugMode = ref<boolean>(settings.debugMode)
+  const modsCompact = ref<boolean>(settings.modsCompact)
+  const workshopCompact = ref<boolean>(settings.workshopCompact)
 
   function persist (): void {
     const api = window.modloader
@@ -135,6 +145,8 @@ export const useAppStore = defineStore('app', () => {
       checkPreRelease: checkPreRelease.value,
       autoCheckUpdate: autoCheckUpdate.value,
       debugMode: debugMode.value,
+      modsCompact: modsCompact.value,
+      workshopCompact: workshopCompact.value,
     }
     queueConfigWrite(next)
   }
@@ -174,6 +186,16 @@ export const useAppStore = defineStore('app', () => {
     persist()
   }
 
+  function setModsCompact (value: boolean): void {
+    modsCompact.value = value
+    persist()
+  }
+
+  function setWorkshopCompact (value: boolean): void {
+    workshopCompact.value = value
+    persist()
+  }
+
   return {
     themeMode,
     autoBackup,
@@ -182,6 +204,8 @@ export const useAppStore = defineStore('app', () => {
     checkPreRelease,
     autoCheckUpdate,
     debugMode,
+    modsCompact,
+    workshopCompact,
     setThemeMode,
     setAutoBackup,
     setBackupRetainDays,
@@ -189,5 +213,7 @@ export const useAppStore = defineStore('app', () => {
     setCheckPreRelease,
     setAutoCheckUpdate,
     setDebugMode,
+    setModsCompact,
+    setWorkshopCompact,
   }
 })

@@ -48,6 +48,7 @@
           v-for="mod in filteredMods"
           :key="mod.id"
           class="mb-3"
+          :compact="appStore.workshopCompact"
           :downloading="downloadingId === mod.id"
           :mod="mod"
           :search-terms="searchTerms"
@@ -81,6 +82,7 @@
   import { useDialogs } from '@/composables/useDialogs'
   import { useModDownload } from '@/composables/useModDownload'
   import { useWorkshopActions } from '@/composables/useWorkshopActions'
+  import { useAppStore } from '@/stores/app'
   import { useProgressStore } from '@/stores/progress'
   import { Search } from '@/utils/Search'
 
@@ -142,6 +144,7 @@
 
   const dialogs = useDialogs()
   const progress = useProgressStore()
+  const appStore = useAppStore()
   const { downloadModAsar, updateMod } = useModDownload()
   const { refreshSignal } = useWorkshopActions()
   const mods = ref<WorkshopModInfo[]>([])

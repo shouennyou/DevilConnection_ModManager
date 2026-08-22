@@ -75,6 +75,7 @@
           class="mod-list-item"
         >
           <ModCard
+            :compact="appStore.modsCompact"
             :mod="mod"
             :search-terms="searchTerms"
             @config="handleConfig"
@@ -120,6 +121,7 @@
   import { useDialogs } from '@/composables/useDialogs'
   import { useModActions } from '@/composables/useModActions'
   import { useModDownload } from '@/composables/useModDownload'
+  import { useAppStore } from '@/stores/app'
   import { useProgressStore } from '@/stores/progress'
   import { inspectModIssues, type ModIssueMod } from '@/utils/mod-issues'
   import { MOD_ORDER_PATH } from '@/utils/mod-order'
@@ -130,6 +132,7 @@
   const dialogs = useDialogs()
   const router = useRouter()
   const progress = useProgressStore()
+  const appStore = useAppStore()
   const { installSignal } = useModActions()
   const { updateMod } = useModDownload()
 
