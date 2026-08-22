@@ -1,4 +1,5 @@
 /** Electron 渲染进程中 window API 的类型声明. */
+import type { ModUpdateManifest } from '@/utils/ModUpdateSource'
 
 /** mod_order.json 的单条记录, 保存顺序与启用状态. */
 export interface ModOrderEntry {
@@ -54,6 +55,12 @@ export interface CachedModInfo {
 export interface CachedModConfig {
   file: string
   config: Record<string, unknown> | null
+}
+
+/** 工坊注册表缓存, 内容与工坊页面的目录模型一致. */
+export interface CachedWorkshopCatalog {
+  items: Array<{ repo: string, manifest: ModUpdateManifest }>
+  unavailableCount: number
 }
 
 /** list 返回的目录条目. */
@@ -170,6 +177,8 @@ export interface ModManagerAPI {
   refreshModCaches: () => Promise<{ success: boolean, infoCount: number, configCount: number }>
   getCachedModInfos: () => Promise<CachedModInfo[]>
   getCachedModConfigs: () => Promise<CachedModConfig[]>
+  getCachedWorkshop: () => Promise<CachedWorkshopCatalog | null>
+  setCachedWorkshop: (catalog: CachedWorkshopCatalog) => Promise<{ success: boolean, message?: string }>
   /** 使用主进程原生文件对话框选择外部 ASAR 模组. */
   selectLocalModFile: () => Promise<LocalModFileResult>
   /** 在主进程将外部 ASAR 复制到模组目录. */

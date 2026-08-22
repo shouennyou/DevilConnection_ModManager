@@ -154,6 +154,34 @@
   const searchQuery = ref('')
   const downloadingId = ref<string | null>(null)
 
+  function applyCatalog (catalog: WorkshopCatalog, modInfos: ModMeta[]): void {
+    const installed = indexInstalledMods(modInfos)
+    mods.value = catalog.items
+      .map(({ repo, manifest }) => {
+        const local = installed.get(manifest.id) ?? null
+        const remoteComparableVersion = ModUpdateSource.toComparableVersion(manifest.version)
+        const localComparableVersion = ModUpdateSource.toComparableVersion(local?.version)
+        const hasUpdate = local !== null
+          && remoteComparableVersion !== null
+          && localComparableVersion !== null
+          && semver.gt(remoteComparableVersion, localComparableVersion)
+        return {
+          ...manifest,
+          repo,
+          name: manifest.name || manifest.id,
+          installed: local,
+          hasUpdate,
+        } satisfies WorkshopModInfo
+      })
+      .toSorted((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+  }
+
+  function applyPersistentCatalog (catalog: WorkshopCatalog, modInfos: ModMeta[]): void {
+    cachedCatalog = catalog
+    applyCatalog(catalog, modInfos)
+    loadNotice.value = '正在更新工坊目录...'
+  }
+
   function indexInstalledMods (modInfos: ModMeta[]): Map<string, InstalledModInfo> {
     const installed = new Map<string, InstalledModInfo>()
     for (const mod of modInfos) {
@@ -195,40 +223,35 @@
     loadError.value = ''
     loadNotice.value = ''
     try {
-      const [catalog, cachedInfos] = await Promise.all([
-        fetchWorkshopCatalog(api, force),
+      const [persistentCatalog, cachedInfos] = await Promise.all([
+        typeof api.getCachedWorkshop === 'function' ? api.getCachedWorkshop() : Promise.resolve(null),
         typeof api.getCachedModInfos === 'function' ? api.getCachedModInfos() : Promise.resolve([]),
       ])
       const modInfos = cachedInfos.length > 0
         ? cachedInfos.map(entry => ({ ...entry.metadata, file: entry.file }))
         : await api.scanModInfos()
-      const installed = indexInstalledMods(modInfos)
-      mods.value = catalog.items
-        .map(({ repo, manifest }) => {
-          const local = installed.get(manifest.id) ?? null
-          const remoteComparableVersion = ModUpdateSource.toComparableVersion(manifest.version)
-          const localComparableVersion = ModUpdateSource.toComparableVersion(local?.version)
-          const hasUpdate = local !== null
-            && remoteComparableVersion !== null
-            && localComparableVersion !== null
-            && semver.gt(remoteComparableVersion, localComparableVersion)
-          return {
-            ...manifest,
-            repo,
-            name: manifest.name || manifest.id,
-            installed: local,
-            hasUpdate,
-          } satisfies WorkshopModInfo
-        })
-        .toSorted((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+      persistentCatalog && applyPersistentCatalog(persistentCatalog, modInfos)
 
-      if (catalog.unavailableCount > 0) {
-        loadNotice.value = `${catalog.unavailableCount} 个注册模组的 update.json 无法读取或与注册表 id 不一致.`
-      }
+      // 即使内存中已有持久化缓存, 首次加载仍请求网络获取最新目录.
+      const catalog = await fetchWorkshopCatalog(api, true)
+      applyCatalog(catalog, modInfos)
+      await (typeof api.setCachedWorkshop === 'function'
+        ? api.setCachedWorkshop(catalog).catch(error => {
+          console.warn('[模组工坊] 写入工坊缓存失败:', error)
+        })
+        : Promise.resolve())
+
+      loadNotice.value = catalog.unavailableCount > 0
+        ? `${catalog.unavailableCount} 个注册模组的 update.json 无法读取或与注册表 id 不一致.`
+        : ''
     } catch (error) {
       console.error('[模组工坊] 加载工坊失败:', error)
-      if (!cachedCatalog) mods.value = []
-      loadError.value = error instanceof Error ? error.message : '加载工坊失败'
+      if (mods.value.length > 0) {
+        loadError.value = ''
+        loadNotice.value = `网络请求失败, 当前显示缓存目录. ${error instanceof Error ? error.message : ''}`.trim()
+      } else {
+        loadError.value = error instanceof Error ? error.message : '加载工坊失败'
+      }
     } finally {
       loading.value = false
     }
