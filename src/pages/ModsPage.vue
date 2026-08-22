@@ -145,6 +145,7 @@
   let sortable: SortableWithOptions | null = null
 
   const mods = ref<ModInfo[]>([])
+  const cachedConfigs = new Map<string, Record<string, unknown>>()
   const isLoading = ref(true)
   const searchQuery = ref('')
   const statusFilter = ref<ModStatusFilter>('all')
@@ -300,13 +301,24 @@
     let orderList: ModOrderEntry[] = []
     let modInfos: ModMeta[] = []
     try {
-      const [content, infos, loaderVersion] = await Promise.all([
+      const [content, cachedInfos, configs, loaderVersion] = await Promise.all([
         api.readFile(MOD_ORDER_PATH),
-        api.scanModInfos(),
+        typeof api.getCachedModInfos === 'function' ? api.getCachedModInfos() : Promise.resolve([]),
+        typeof api.getCachedModConfigs === 'function' ? api.getCachedModConfigs() : Promise.resolve([]),
         readModLoaderVersion(api),
       ])
-      orderList = content ? JSON.parse(content) : []
-      modInfos = infos ?? []
+      if (cachedInfos.length > 0) {
+        orderList = cachedInfos.map(entry => ({ file: entry.file, order: entry.order, enabled: entry.enabled }))
+      } else {
+        orderList = content ? JSON.parse(content) : []
+      }
+      modInfos = cachedInfos.length > 0
+        ? cachedInfos.map(entry => ({ ...entry.metadata, file: entry.file }))
+        : await api.scanModInfos()
+      cachedConfigs.clear()
+      for (const entry of configs) {
+        if (entry.config) cachedConfigs.set(entry.file, entry.config)
+      }
       modLoader = loaderVersion
         ? {
           id: loaderVersion.id,
@@ -587,7 +599,8 @@
 
     let definition: ModConfigDefinition
     try {
-      const content = await api.readFile(configDefinitionPath(mod))
+      const cached = cachedConfigs.get(mod.file)
+      const content = cached ? JSON.stringify(cached) : await api.readFile(configDefinitionPath(mod))
       if (!content) {
         await dialogs.alert({ title: '无法配置', message: '未找到 modloader.config.json。' })
         return

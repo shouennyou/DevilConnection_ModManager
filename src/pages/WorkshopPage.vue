@@ -195,10 +195,13 @@
     loadError.value = ''
     loadNotice.value = ''
     try {
-      const [catalog, modInfos] = await Promise.all([
+      const [catalog, cachedInfos] = await Promise.all([
         fetchWorkshopCatalog(api, force),
-        api.scanModInfos(),
+        typeof api.getCachedModInfos === 'function' ? api.getCachedModInfos() : Promise.resolve([]),
       ])
+      const modInfos = cachedInfos.length > 0
+        ? cachedInfos.map(entry => ({ ...entry.metadata, file: entry.file }))
+        : await api.scanModInfos()
       const installed = indexInstalledMods(modInfos)
       mods.value = catalog.items
         .map(({ repo, manifest }) => {

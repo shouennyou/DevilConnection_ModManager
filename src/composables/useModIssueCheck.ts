@@ -11,11 +11,14 @@ async function loadModIssues () {
     throw new TypeError('模组管理服务不可用')
   }
 
-  const [content, modInfos, loaderVersion] = await Promise.all([
+  const [content, cachedInfos, loaderVersion] = await Promise.all([
     api.readFile(MOD_ORDER_PATH),
-    api.scanModInfos(),
+    typeof api.getCachedModInfos === 'function' ? api.getCachedModInfos() : Promise.resolve([]),
     readModLoaderVersion(api),
   ])
+  const modInfos = cachedInfos.length > 0
+    ? cachedInfos.map(entry => ({ ...entry.metadata, file: entry.file }))
+    : await api.scanModInfos()
   const orderList: unknown = content ? JSON.parse(content) : []
   if (!Array.isArray(orderList)) {
     throw new TypeError('mod_order.json 格式无效')

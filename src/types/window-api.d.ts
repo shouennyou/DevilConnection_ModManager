@@ -42,6 +42,20 @@ export interface ModMeta {
   canConfig?: boolean
 }
 
+/** mod-info.json 中的缓存条目. */
+export interface CachedModInfo {
+  file: string
+  order: number
+  enabled: boolean
+  metadata: ModMeta
+}
+
+/** mod-config.json 中的缓存条目. */
+export interface CachedModConfig {
+  file: string
+  config: Record<string, unknown> | null
+}
+
 /** list 返回的目录条目. */
 export interface DirEntry {
   name: string
@@ -153,6 +167,9 @@ export interface ModManagerAPI {
   /** 异步读取 .asar 内部文件. */
   readAsarFile: (subPath: string) => Promise<string | null>
   scanModInfos: () => Promise<ModMeta[]>
+  refreshModCaches: () => Promise<{ success: boolean, infoCount: number, configCount: number }>
+  getCachedModInfos: () => Promise<CachedModInfo[]>
+  getCachedModConfigs: () => Promise<CachedModConfig[]>
   /** 使用主进程原生文件对话框选择外部 ASAR 模组. */
   selectLocalModFile: () => Promise<LocalModFileResult>
   /** 在主进程将外部 ASAR 复制到模组目录. */
